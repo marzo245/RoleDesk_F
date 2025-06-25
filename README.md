@@ -52,17 +52,20 @@ Un clon moderno de Gather construido con Next.js, React y PIXI.js que permite es
    Crea un archivo `.env.local` en la raíz del proyecto:
    ```env
    # Supabase
-   NEXT_PUBLIC_SUPABASE_URL=tu_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_supabase_anon_key
-   
-   # Agora.io
-   NEXT_PUBLIC_AGORA_APP_ID=tu_agora_app_id
-   
-   # Backend
+
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+   # Application URLs
+   NEXT_PUBLIC_BASE_URL=http://localhost:3000
    NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
-   
-   # Google OAuth (opcional)
-   NEXT_PUBLIC_GOOGLE_CLIENT_ID=tu_google_client_id
+
+   # Service Role (for server-side operations)
+   SERVICE_ROLE=your_service_role_key_here
+
+   # Agora.io Video Chat
+   NEXT_PUBLIC_AGORA_APP_ID=your_agora_app_id_here
+   APP_CERTIFICATE=your_agora_app_certificate_here
    ```
 
 4. **Ejecutar en modo desarrollo**
