@@ -31,14 +31,12 @@ export async function middleware(request: NextRequest) {
 
 ### **Granular Permission System**
 ```typescript
-type Permission = 'realm:read' | 'realm:edit' | 'realm:admin' | 'realm:manage_users';
+type Permission = 'realm:read' | 'realm:edit' | 'realm:admin';
 
 // Matriz de permisos por rol
 const ROLE_PERMISSIONS = {
-  owner: ['realm:read', 'realm:edit', 'realm:admin', 'realm:manage_users'],
-  moderator: ['realm:read', 'realm:edit', 'realm:manage_users'],
-  participant: ['realm:read'],
-  viewer: ['realm:read']  // Solo viewing, sin participación A/V
+  owner: ['realm:read', 'realm:edit', 'realm:admin'],
+  user: ['realm:read']  // Solo viewing y participación básica
 } as const;
 ```
 

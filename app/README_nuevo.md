@@ -1,15 +1,6 @@
 # RoleDesk Frontend 🎛️
 
-### **Documentación de Usuario**
-- **[📖 Guía de Uso](docs/USO.md)** - Manual de usuario y administrador
-
-### **Gestión de Producto**
-- **[📋 Historias de Usuario](docs/HISTORIAS_SIMPLES.md)** - Épicas, features y criterios de aceptación
-
----stión de Producto**
-- **[📋 Historias de Usuario](docs/HISTORIAS_SIMPLES.md)** - Épicas, features y criterios de aceptación
-- **[🎯 Product Backlog](docs/PRODUCT_BACKLOG.md)** - Roadmap, estimaciones y métricas avanzadas
-- **[⚡ Metodología Ágil](docs/METODOLOGIA_AGIL.md)** - Framework Scrum/Kanban completov align="center">
+<div align="center">
 
 [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -23,18 +14,11 @@
 
 ## 📚 Documentación
 
-### **Documentación Técnica**
 - **[🏗️ Arquitectura Técnica](docs/ARQUITECTURA.md)** - Explicación detallada del sistema
 - **[⚡ Optimizaciones de Performance](docs/PERFORMANCE.md)** - Benchmarks y optimizaciones
 - **[🔒 Seguridad](docs/SEGURIDAD.md)** - Autenticación, autorización y protecciones
-- **[🛠️ Guía de Desarrollo](docs/DESARROLLO.md)** - Setup, testing y contribuciones
-
-### **Documentación de Usuario**
 - **[📖 Guía de Uso](docs/USO.md)** - Manual de usuario y administrador
-
-### **Gestión de Producto**
-- **[� Historias de Usuario](docs/HISTORIAS_USUARIO.md)** - Épicas, features y criterios de aceptación
-- **[🎯 Product Backlog](docs/PRODUCT_BACKLOG.md)** - Roadmap, estimaciones y métricas
+- **[🛠️ Guía de Desarrollo](docs/DESARROLLO.md)** - Setup, testing y contribuciones
 
 ---
 

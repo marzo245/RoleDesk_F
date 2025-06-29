@@ -115,17 +115,15 @@ Configuración de Audio:
 ### **Gestión de Usuarios**
 ```
 Roles disponibles:
-- Owner: Control total (solo 1 por realm)
-- Moderator: Puede editar mapa y gestionar usuarios
-- Participant: Puede usar A/V y moverse en el mapa
-- Viewer: Solo puede observar (sin A/V)
+- Owner: Control total del realm (solo 1 por realm)
+- Usuario: Puede usar A/V, moverse en el mapa y participar
 ```
 
-**Acciones de moderación:**
-- **Silenciar**: Desactiva audio de un usuario
-- **Desactivar Video**: Fuerza apagar cámara de un usuario  
-- **Expulsar**: Remueve usuario del realm temporalmente
-- **Banear**: Bloquea acceso permanentemente
+**Funcionalidades del Owner:**
+- **Editar Mapa**: Usar herramientas de edición en tiempo real
+- **Configurar Realm**: Cambiar nombre y opciones de privacidad
+- **Gestionar Links**: Crear y regenerar links de invitación
+- **Control Total**: Acceso completo a todas las funciones del realm
 
 ---
 
