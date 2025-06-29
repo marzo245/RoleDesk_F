@@ -1,7 +1,0 @@
-{
-  "/play/[id]/page": "app/play/[id]/page.js",
-  "/app/page": "app/app/page.js",
-  "/signin/page": "app/signin/page.js",
-  "/icon.png/route": "app/icon.png/route.js",
-  "/auth/callback/route": "app/auth/callback/route.js"
-}
