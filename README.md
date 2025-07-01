@@ -111,7 +111,7 @@ npm run type-check   # Verificación de tipos TypeScript
 
 ---
 
-## 🏗️ Estructura del Proyecto
+## 🏗️ Estructura del Proyecto 
 
 ```
 app/                    # Next.js 13+ App Router
