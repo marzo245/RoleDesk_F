@@ -22,10 +22,6 @@ export class VideoChat {
     constructor() {
         AgoraRTC.setLogLevel(4)
         
-        // Configurar opciones de conexión más robustas
-        AgoraRTC.setParameter('WEBSOCKET_TIMEOUT', 15000) // 15 segundos timeout
-        AgoraRTC.setParameter('TURN_SERVER_TIMEOUT', 10000) // 10 segundos para TURN
-        
         this.client.on('user-published', this.onUserPublished)
         this.client.on('user-unpublished', this.onUserUnpublished)
         this.client.on('user-left', this.onUserLeft)
@@ -34,11 +30,8 @@ export class VideoChat {
         
         // Agregar listener de conexión para detectar problemas de red
         this.client.on('connection-state-change', (curState, revState, reason) => {
-            console.log(`Main client connection state changed: ${revState} -> ${curState}, reason: ${reason}`)
-            
             // Si el cliente se reconecta, verificar el estado del dual stream
             if (curState === 'CONNECTED' && revState !== 'CONNECTED') {
-                console.log('Client connected, verifying dual stream state...')
                 this.verifyDualStreamState()
             }
         })
@@ -314,7 +307,7 @@ export class VideoChat {
                 
                 if (tracksToPublish.length > 0) {
                     await this.client.publish(tracksToPublish)
-                    console.log('Published tracks:', tracksToPublish.map(t => t.type))
+                    console.log('Published tracks:', tracksToPublish.length)
                 }
 
                 // Si ya hay pantalla compartida activa, conectar el cliente de pantalla también
@@ -322,10 +315,10 @@ export class VideoChat {
                     await this.joinScreenChannel(uniqueChannelId)
                 }
 
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Error joining channel:', error)
                 // Si hay un error de UID conflict, solo hacer limpieza y reintentar una vez con el UID original
-                if (error.code === 'UID_CONFLICT') {
+                if (error?.code === 'UID_CONFLICT') {
                     console.log('UID conflict detected, attempting single retry...')
                     try {
                         // Limpieza más agresiva
@@ -487,9 +480,7 @@ export class VideoChat {
                     }
 
                     console.log('Screen track details:', {
-                        type: videoTrack.type,
-                        trackId: videoTrack.trackId,
-                        label: videoTrack.getTrackLabel(),
+                        type: videoTrack.constructor.name,
                         enabled: videoTrack.enabled
                     })
 
@@ -546,21 +537,16 @@ export class VideoChat {
     }
 
     public async republishAllTracks() {
-        console.log('VideoChat: republishAllTracks called')
-        console.log('VideoChat: Client connection state:', this.client?.connectionState)
-        
         try {
             if (this.client.connectionState !== 'CONNECTED') {
-                console.log('VideoChat: Client not connected, skipping republish')
                 return
             }
             
             // Despublicar todo primero para evitar conflictos
             try {
-                await this.client.unpublishAll()
-                console.log('VideoChat: Unpublished all tracks before republishing')
+                await this.client.unpublish()
             } catch (unpublishError) {
-                console.log('VideoChat: Error unpublishing all tracks (might be normal):', unpublishError)
+                // Error silenciado - es normal en algunos casos
             }
             
             const tracksToPublish = []
@@ -568,36 +554,16 @@ export class VideoChat {
             // Revisar micrófono
             if (this.microphoneTrack && !this.microphoneTrack.muted) {
                 tracksToPublish.push(this.microphoneTrack)
-                console.log('VideoChat: Adding microphone track to publish list')
-            } else if (this.microphoneTrack) {
-                console.log('VideoChat: Microphone track exists but is muted, not publishing')
-            } else {
-                console.log('VideoChat: No microphone track available')
             }
             
             // Revisar cámara - Solo publicar cámara en el cliente principal (la pantalla va en el cliente separado)
             if (this.cameraTrack && this.cameraTrack.enabled) {
                 tracksToPublish.push(this.cameraTrack)
-                console.log('VideoChat: Adding camera track to publish list')
-            } else if (this.cameraTrack) {
-                console.log('VideoChat: Camera track exists but is disabled, not publishing')
-            } else {
-                console.log('VideoChat: No camera track available')
             }
             
             if (tracksToPublish.length > 0) {
-                console.log('VideoChat: Publishing tracks:', tracksToPublish.map(t => t ? t.type : 'undefined'))
-                console.log('VideoChat: Track details:', tracksToPublish.map(t => t ? {
-                    type: t.type,
-                    enabled: t.type === 'video' ? t.enabled : !t.muted,
-                    trackId: t.trackId
-                } : 'undefined'))
-                
                 const validTracks = tracksToPublish.filter(t => t !== undefined)
                 await this.client.publish(validTracks)
-                console.log('VideoChat: Successfully published', validTracks.length, 'tracks')
-            } else {
-                console.log('VideoChat: No tracks to publish')
             }
         } catch (error) {
             console.error('VideoChat: Error republishing tracks:', error)
@@ -828,18 +794,15 @@ export class VideoChat {
         return {
             camera: {
                 exists: !!this.cameraTrack,
-                enabled: this.cameraTrack?.enabled || false,
-                trackId: this.cameraTrack?.trackId || null
+                enabled: this.cameraTrack?.enabled || false
             },
             microphone: {
                 exists: !!this.microphoneTrack,
-                muted: this.microphoneTrack?.muted || false,
-                trackId: this.microphoneTrack?.trackId || null
+                muted: this.microphoneTrack?.muted || false
             },
             screen: {
                 exists: !!this.screenTrack,
                 enabled: this.screenTrack?.enabled || false,
-                trackId: this.screenTrack?.trackId || null,
                 isSharing: this.isScreenSharing
             },
             client: {
@@ -866,10 +829,4 @@ export const videoChat = new VideoChat()
 
 // Funciones helper para debug
 export const getVideoChatDebugInfo = () => videoChat.getConnectionDebugInfo()
-export const getTracksState = () => videoChat.getTracksState()
-
-// Hacer debug info disponible globalmente para console debugging
-if (typeof window !== 'undefined') {
-    (window as any).videoChatDebug = getVideoChatDebugInfo
-    (window as any).tracksState = getTracksState
-}
+export const getVideoChatTracksState = () => videoChat.getTracksState()

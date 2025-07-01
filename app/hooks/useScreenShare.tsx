@@ -22,8 +22,10 @@ export const useScreenShare = () => {
         const isScreenByDisplaySurface = settings.displaySurface !== undefined
         
         // Verificar por dimensiones (pantallas suelen ser más grandes que cámaras)
-        const isScreenByDimensions = settings.width && settings.height && 
-                                   (settings.width > 1280 || settings.height > 720)
+        let isScreenByDimensions = false
+        if (typeof settings.width === 'number' && typeof settings.height === 'number') {
+            isScreenByDimensions = settings.width > 1280 || settings.height > 720
+        }
         
         return isScreenByLabel || isScreenByDisplaySurface || isScreenByDimensions
     }

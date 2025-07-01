@@ -18,8 +18,8 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
     const handleClose = () => {
         // Limpiar estilos inmediatamente
         const cleanupStyles = () => {
-            const videoElement = document.querySelector(`#screen-share-${user.uid} video`)
-            const container = document.querySelector(`#screen-share-${user.uid}`)
+            const videoElement = document.querySelector(`#screen-share-${user.uid} video`) as HTMLVideoElement
+            const container = document.querySelector(`#screen-share-${user.uid}`) as HTMLElement
             
             if (videoElement) {
                 videoElement.style.removeProperty('width')
@@ -64,8 +64,8 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
                 
                 // Aplicar estilos para que el video se ajuste correctamente sin recortes
                 setTimeout(() => {
-                    const container = document.querySelector(`#screen-share-${user.uid}`)
-                    const videoElement = document.querySelector(`#screen-share-${user.uid} video`)
+                    const container = document.querySelector(`#screen-share-${user.uid}`) as HTMLElement
+                    const videoElement = document.querySelector(`#screen-share-${user.uid} video`) as HTMLVideoElement
                     
                     if (container) {
                         container.style.width = '100%'
@@ -86,7 +86,7 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
                     
                     // Verificar de nuevo después de un tiempo adicional por si el video tarda en renderizar
                     setTimeout(() => {
-                        const lateVideoElement = document.querySelector(`#screen-share-${user.uid} video`)
+                        const lateVideoElement = document.querySelector(`#screen-share-${user.uid} video`) as HTMLVideoElement
                         if (lateVideoElement) {
                             lateVideoElement.style.width = '100%'
                             lateVideoElement.style.height = '100%'
@@ -158,9 +158,9 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
         return () => {
             // Limpiar estilos aplicados al video de pantalla compartida
             const restoreScreenStyles = () => {
-                const videoElement = document.querySelector(`#screen-share-${user.uid} video`)
-                const containerDiv = document.querySelector(`#screen-share-${user.uid} > div`)
-                const container = document.querySelector(`#screen-share-${user.uid}`)
+                const videoElement = document.querySelector(`#screen-share-${user.uid} video`) as HTMLVideoElement
+                const containerDiv = document.querySelector(`#screen-share-${user.uid} > div`) as HTMLElement
+                const container = document.querySelector(`#screen-share-${user.uid}`) as HTMLElement
                 
                 if (videoElement) {
                     // Restaurar estilos normales para el video
@@ -205,14 +205,14 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
     // Reproducir video de cámara cuando esté disponible
     useEffect(() => {
         if (cameraUser && cameraUser.videoTrack && cameraContainerRef.current) {
-            const userId = cameraUser.uid || cameraUser.baseUID || 'local'
+            const userId = cameraUser.uid || 'local'
             try {
                 cameraUser.videoTrack.play(`camera-${userId}`)
                 
                 // Aplicar estilos para que la cámara se ajuste correctamente
                 setTimeout(() => {
-                    const container = document.querySelector(`#camera-${userId}`)
-                    const videoElement = document.querySelector(`#camera-${userId} video`)
+                    const container = document.querySelector(`#camera-${userId}`) as HTMLElement
+                    const videoElement = document.querySelector(`#camera-${userId} video`) as HTMLVideoElement
                     
                     if (container) {
                         container.style.width = '100%'
@@ -241,8 +241,8 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
         if (user.videoTrack && screenContainerRef.current) {
             // Aplicar estilos múltiples veces para asegurar que funcionen
             const applyScreenStyles = () => {
-                const videoElement = document.querySelector(`#screen-share-${user.uid} video`)
-                const containerDiv = document.querySelector(`#screen-share-${user.uid} > div`)
+                const videoElement = document.querySelector(`#screen-share-${user.uid} video`) as HTMLVideoElement
+                const containerDiv = document.querySelector(`#screen-share-${user.uid} > div`) as HTMLElement
                 
                 if (videoElement) {
                     videoElement.style.width = '100%'
@@ -274,8 +274,8 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
         return () => {
             // Limpiar cualquier estilo residual
             setTimeout(() => {
-                const videoElement = document.querySelector(`#screen-share-${user.uid} video`)
-                const container = document.querySelector(`#screen-share-${user.uid}`)
+                const videoElement = document.querySelector(`#screen-share-${user.uid} video`) as HTMLVideoElement
+                const container = document.querySelector(`#screen-share-${user.uid}`) as HTMLElement
                 
                 if (videoElement) {
                     videoElement.style.removeProperty('width')
@@ -339,7 +339,7 @@ const ScreenShareModal: React.FC<ScreenShareModalProps> = ({ user, onClose }) =>
                                 <div className="relative w-full max-w-sm">
                                     <div
                                         ref={cameraContainerRef}
-                                        id={`camera-${cameraUser.uid || cameraUser.baseUID || 'local'}`}
+                                        id={`camera-${cameraUser.uid || 'local'}`}
                                         className="w-full bg-black rounded-lg overflow-hidden shadow-md"
                                         style={{ 
                                             aspectRatio: '16/9',

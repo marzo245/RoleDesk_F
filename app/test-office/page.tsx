@@ -9,10 +9,10 @@ export default function TestOfficePage() {
     useEffect(() => {
         const loadSprites = async () => {
             try {
-                await sprites.load('office')
+                await sprites.load('city')
                 setLoaded(true)
             } catch (err) {
-                setError(`Error loading office spritesheet: ${err}`)
+                setError(`Error loading city spritesheet: ${err}`)
                 console.error(err)
             }
         }
@@ -21,19 +21,19 @@ export default function TestOfficePage() {
 
     const TestSprite = ({ spriteName }: { spriteName: string }) => {
         try {
-            const spriteData = sprites.spriteSheetDataSet['office'].sprites[spriteName]
+            const spriteData = sprites.spriteSheetDataSet['city'].sprites[spriteName]
             if (!spriteData) {
                 return <div className="p-2 border border-red-500">❌ {spriteName}</div>
             }
 
-            const src = sprites.spriteSheetDataSet['office'].url
+            const src = sprites.spriteSheetDataSet['city'].url
             const { x, y, width, height } = spriteData
-            const sheetWidth = sprites.spriteSheetDataSet['office'].width
-            const sheetHeight = sprites.spriteSheetDataSet['office'].height
+            const sheetWidth = sprites.spriteSheetDataSet['city'].width
+            const sheetHeight = sprites.spriteSheetDataSet['city'].height
             const scale = 3 // Escalamos para ver mejor
 
-            // Extraemos las coordenadas del nombre del sprite (formato: office_X_Y)
-            const coords = spriteName.match(/office_(\d+)_(\d+)/)
+            // Extraemos las coordenadas del nombre del sprite (formato: city_X_Y)
+            const coords = spriteName.match(/city_(\d+)_(\d+)/)
             const col = coords ? coords[1] : '?'
             const row = coords ? coords[2] : '?'
 
@@ -64,7 +64,7 @@ export default function TestOfficePage() {
     if (error) {
         return (
             <div className="p-4">
-                <h1 className="text-2xl font-bold mb-4">Office Spritesheet Test - ERROR</h1>
+                <h1 className="text-2xl font-bold mb-4">City Spritesheet Test - ERROR</h1>
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                     {error}
                 </div>
@@ -75,19 +75,19 @@ export default function TestOfficePage() {
     if (!loaded) {
         return (
             <div className="p-4">
-                <h1 className="text-2xl font-bold mb-4">Office Spritesheet Test</h1>
-                <div>Loading office spritesheet...</div>
+                <h1 className="text-2xl font-bold mb-4">City Spritesheet Test</h1>
+                <div>Loading city spritesheet...</div>
             </div>
         )
     }
 
-    const spriteNames = sprites.spriteSheetDataSet['office'].spritesList.map(sprite => sprite.name)
+    const spriteNames = sprites.spriteSheetDataSet['city'].spritesList.map(sprite => sprite.name)
 
     return (
         <div className="p-4">
-            <h1 className="text-2xl font-bold mb-4">Office Spritesheet Test</h1>
+            <h1 className="text-2xl font-bold mb-4">City Spritesheet Test</h1>
             <div className="mb-4">
-                <p>✅ Office spritesheet loaded successfully!</p>
+                <p>✅ City spritesheet loaded successfully!</p>
                 <p>Found {spriteNames.length} sprites</p>
             </div>
             
@@ -103,19 +103,19 @@ export default function TestOfficePage() {
                 <div className="space-y-2">
                     <div>
                         <strong>Floor:</strong> {spriteNames.filter(name => {
-                            const sprite = sprites.spriteSheetDataSet['office'].sprites[name]
+                            const sprite = sprites.spriteSheetDataSet['city'].sprites[name]
                             return !sprite.layer || sprite.layer === 'floor'
                         }).length} sprites
                     </div>
                     <div>
                         <strong>Object:</strong> {spriteNames.filter(name => {
-                            const sprite = sprites.spriteSheetDataSet['office'].sprites[name]
+                            const sprite = sprites.spriteSheetDataSet['city'].sprites[name]
                             return sprite.layer === 'object'
                         }).length} sprites
                     </div>
                     <div>
                         <strong>Above Floor:</strong> {spriteNames.filter(name => {
-                            const sprite = sprites.spriteSheetDataSet['office'].sprites[name]
+                            const sprite = sprites.spriteSheetDataSet['city'].sprites[name]
                             return sprite.layer === 'above_floor'
                         }).length} sprites
                     </div>

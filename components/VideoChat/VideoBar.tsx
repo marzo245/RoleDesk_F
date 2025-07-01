@@ -51,8 +51,10 @@ const VideoBar:React.FC = () => {
         const isScreenByDisplaySurface = settings.displaySurface !== undefined
         
         // Verificar por dimensiones (pantallas suelen ser más grandes que cámaras)
-        const isScreenByDimensions = settings.width && settings.height && 
-                                   (settings.width > 1280 || settings.height > 720)
+        let isScreenByDimensions = false
+        if (typeof settings.width === 'number' && typeof settings.height === 'number') {
+            isScreenByDimensions = settings.width > 1280 || settings.height > 720
+        }
         
         return isScreenByLabel || isScreenByDisplaySurface || isScreenByDimensions
     }
@@ -272,7 +274,7 @@ function RemoteUserScreenShare({ user, onFullscreen }: { user: RemoteUser; onFul
             hasVideoTrack: !!user.user.videoTrack,
             isScreenSharing: user.isScreenSharing,
             cameraEnabled: user.cameraEnabled,
-            videoTrackType: user.user.videoTrack?.getTrackLabel?.() || 'unknown'
+            videoTrackId: user.user.videoTrack?.getTrackId?.() || 'unknown'
         })
         
         // Para pantalla compartida, solo verificar que hay videoTrack, sin importar otros flags
