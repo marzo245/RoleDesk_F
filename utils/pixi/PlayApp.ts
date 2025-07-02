@@ -130,9 +130,7 @@ export class PlayApp extends App {
     }
 
     private async updatePlayer(uid: string, player: any) {
-        console.log('Frontend - updatePlayer called for:', uid, player.username)
         if (uid in this.players) {
-            console.log('Frontend - Player already exists, updating properties')
             if (this.players[uid].skin !== player.skin) {
                 await this.players[uid].changeSkin(player.skin)
             }
@@ -140,21 +138,16 @@ export class PlayApp extends App {
                 this.players[uid].setPosition(player.x, player.y)
             }
         } else {
-            console.log('Frontend - Player does not exist, spawning new player')
             await this.spawnPlayer(player.uid, player.skin, player.username, player.x, player.y)
-            console.log('Frontend - New player spawned successfully')
         }
     }
 
     private async spawnPlayer(uid: string, skin: string, username: string, x: number, y: number) {
-        console.log('Frontend - spawnPlayer called for:', uid, username, 'at position:', x, y)
         const otherPlayer = new Player(skin, this, username)
         await otherPlayer.init()
         otherPlayer.setPosition(x, y)
         this.layers.object.addChild(otherPlayer.parent)
         this.players[uid] = otherPlayer
-        console.log('Frontend - Player spawned and added to list:', uid)
-        console.log('Frontend - Total players now:', Object.keys(this.players).length)
         this.sortObjectsByY()
     }
 
@@ -330,40 +323,26 @@ export class PlayApp extends App {
     }
 
     private onPlayerLeftRoom = (uid: string) => {
-        console.log('Frontend - Player left room:', uid)
         if (this.players[uid]) {
             this.players[uid].destroy()
             this.layers.object.removeChild(this.players[uid].parent)
             delete this.players[uid]
-            console.log('Frontend - Removed player, remaining players:', Object.keys(this.players))
         }
     }
 
     private onPlayerJoinedRoom = (playerData: any) => {
-        console.log('Frontend - Player joined room:', playerData.uid, playerData.username)
-        console.log('Frontend - Player data:', { uid: playerData.uid, username: playerData.username, x: playerData.x, y: playerData.y, skin: playerData.skin })
-        console.log('Frontend - Current players before update:', Object.keys(this.players))
         this.updatePlayer(playerData.uid, playerData)
-        console.log('Frontend - Current players after update:', Object.keys(this.players))
     }
 
     private onPlayerMoved = (data: any) => {
-        console.log('Frontend - Received playerMoved event:', data)
-        
         if (this.blocked.has(`${data.x}, ${data.y}`)) {
-            console.log('Frontend - Move blocked for position:', data.x, data.y)
             return
         }
 
         const player = this.players[data.uid]
-        console.log('Frontend - Player found:', !!player)
-        console.log('Frontend - Available players:', Object.keys(this.players))
         
         if (player) {
-            console.log('Frontend - Moving player to:', data.x, data.y)
             player.moveToTile(data.x, data.y)
-        } else {
-            console.log('Frontend - Player not found for uid:', data.uid)
         }
     }
 
@@ -463,34 +442,13 @@ export class PlayApp extends App {
     }
 
     private onProximityUpdate = (data: any) => {
-        console.log('Frontend - Received proximityUpdate:', data)
         this.proximityId = data.proximityId
-        console.log('Frontend - Updated proximityId to:', this.proximityId)
         if (this.proximityId) {
-            console.log('Frontend - Checking if should join channel')
             this.player.checkIfShouldJoinChannel(this.player.currentTilePosition)
-        } else {
-            console.log('Frontend - No proximityId, should leave channel')
         }
     }
 
     private setUpSocketEvents = () => {
-        // Debug: capturar todos los eventos del socket
-        const originalOn = server.socket.on.bind(server.socket)
-        const originalEmit = server.socket.emit.bind(server.socket)
-        
-        console.log('Frontend - Setting up socket event listeners')
-        
-        // Agregar un listener temporal para debuggear
-        server.socket.onAny((eventName: string, ...args: any[]) => {
-            if (eventName === 'playerJoinedRoom') {
-                console.log('Frontend - RAW playerJoinedRoom event received:', args)
-            }
-            if (eventName === 'proximityUpdate') {
-                console.log('Frontend - RAW proximityUpdate event received:', args)
-            }
-        })
-        
         server.socket.on('playerLeftRoom', this.onPlayerLeftRoom)
         server.socket.on('playerJoinedRoom', this.onPlayerJoinedRoom)
         server.socket.on('playerMoved', this.onPlayerMoved)

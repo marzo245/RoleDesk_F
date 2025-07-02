@@ -1,200 +1,62 @@
+import AgoraRTC, { IAgoraRTCClient, ICameraVideoTrack, IMicrophoneAudioTrack, ILocalVideoTrack, IAgoraRTCRemoteUser, IDataChannelConfig } from 'agora-rtc-sdk-ng'
 import signal from '../signal'
 import { createHash } from 'crypto'
 import { generateToken } from './generateToken'
-import { AgoraSecurityManager } from './security-manager'
-
-// Dynamic imports para evitar que Agora se cargue en contextos inseguros
-let AgoraRTC: any = null
-let loadingPromise: Promise<any> | null = null
-
-// Función para cargar Agora dinámicamente solo cuando es seguro
-const loadAgoraSDK = async () => {
-    if (AgoraRTC) return AgoraRTC
-    
-    if (loadingPromise) return loadingPromise
-    
-    loadingPromise = (async () => {
-        try {
-            const agoraModule = await import('agora-rtc-sdk-ng')
-            AgoraRTC = agoraModule.default
-            return AgoraRTC
-        } catch (error) {
-            console.error('Failed to load Agora SDK:', error)
-            throw error
-        }
-    })()
-    
-    return loadingPromise
-}
 
 export class VideoChat {
-    private client: any
-    private screenClient: any | null = null // Cliente dedicado para pantalla compartida
-    private microphoneTrack: any | null = null
-    private cameraTrack: any | null = null
-    private screenTrack: any | null = null
+    private client: IAgoraRTCClient = AgoraRTC.createClient({ codec: "vp8", mode: "rtc" })
+    private screenClient: IAgoraRTCClient | null = null // Cliente dedicado para pantalla compartida
+    private microphoneTrack: IMicrophoneAudioTrack | null = null
+    private cameraTrack: ICameraVideoTrack | null = null
+    private screenTrack: ILocalVideoTrack | null = null
     private currentChannel: string = ''
     private currentRealmId: string = '' // Almacenar el realmId actual
     private isScreenSharing: boolean = false
     private baseUID: string = '' // UID base del usuario
     private isDualStreamEnabled: boolean = false // Flag para rastrear si dual stream está habilitado
-    private securityContext: any = null
-    private isInitialized: boolean = false
 
-    private remoteUsers: { [uid: string]: any } = {}
+    private remoteUsers: { [uid: string]: IAgoraRTCRemoteUser } = {}
 
     private channelTimeout: NodeJS.Timeout | null = null
 
     constructor() {
-        // Solo verificar contexto de seguridad, NO cargar Agora todavía
-        this.securityContext = AgoraSecurityManager.checkSecurityContext()
+        AgoraRTC.setLogLevel(4)
         
-        if (!this.securityContext.canUseWebRTC) {
-            console.error('VideoChat: Cannot initialize in insecure context:', this.securityContext.errors)
-            // Crear un cliente mock que no haga nada
-            this.client = this.createMockClient()
-            this.isInitialized = true
-            return
-        }
-
-        // En contextos seguros, crear un proxy que cargue Agora bajo demanda
-        this.client = this.createLazyClient()
-        this.isInitialized = false
-    }
-
-    private createMockClient(): any {
-        // Cliente mock que no hace nada para entornos inseguros
-        return {
-            join: () => Promise.reject(new Error('WebRTC not available in this context')),
-            leave: () => Promise.resolve(),
-            publish: () => Promise.resolve(),
-            unpublish: () => Promise.resolve(),
-            subscribe: () => Promise.resolve(),
-            unsubscribe: () => Promise.resolve(),
-            enableDualStream: () => Promise.resolve(),
-            on: () => {},
-            off: () => {},
-            connectionState: 'DISCONNECTED',
-            remoteUsers: [],
-            uid: null,
-            channelName: null
-        }
-    }
-
-    private createLazyClient(): any {
-        // Cliente proxy que carga Agora bajo demanda
-        const lazyClientProxy = new Proxy({}, {
-            get: (target: any, prop: string) => {
-                if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-                    // No es una promesa, retornar undefined
-                    return undefined
-                }
-                
-                return async (...args: any[]) => {
-                    // Cargar e inicializar Agora cuando se accede por primera vez
-                    if (!this.isInitialized) {
-                        await this.initializeAgoraClient()
-                    }
-                    
-                    // Delegar al cliente real
-                    if (this.client && typeof this.client[prop] === 'function') {
-                        return this.client[prop](...args)
-                    } else if (this.client && prop in this.client) {
-                        return this.client[prop]
-                    }
-                    
-                    console.warn(`Method ${prop} not found on Agora client`)
-                    return undefined
-                }
+        this.client.on('user-published', this.onUserPublished)
+        this.client.on('user-unpublished', this.onUserUnpublished)
+        this.client.on('user-left', this.onUserLeft)
+        this.client.on('user-info-updated', this.onUserInfoUpdated)
+        this.client.on('user-joined', this.onUserJoined)
+        
+        // Agregar listener de conexión para detectar problemas de red
+        this.client.on('connection-state-change', (curState, revState, reason) => {
+            // Si el cliente se reconecta, verificar el estado del dual stream
+            if (curState === 'CONNECTED' && revState !== 'CONNECTED') {
+                this.verifyDualStreamState()
             }
         })
-        
-        return lazyClientProxy
     }
 
-    private async initializeAgoraClient(): Promise<void> {
-        if (this.isInitialized) return
-        
-        try {
-            console.log('VideoChat: Initializing Agora client...')
-            
-            // Cargar Agora SDK dinámicamente
-            const AgoraRTCModule = await loadAgoraSDK()
-            
-            // Crear cliente real
-            this.client = AgoraRTCModule.createClient({ codec: "vp8", mode: "rtc" })
-            AgoraRTCModule.setLogLevel(4)
-            
-            // Configurar event listeners
-            this.client.on('user-published', this.onUserPublished)
-            this.client.on('user-unpublished', this.onUserUnpublished)
-            this.client.on('user-left', this.onUserLeft)
-            this.client.on('user-info-updated', this.onUserInfoUpdated)
-            this.client.on('user-joined', this.onUserJoined)
-            
-            // Agregar listener de conexión para detectar problemas de red
-            this.client.on('connection-state-change', (curState: any, revState: any, reason: any) => {
-                // Si el cliente se reconecta, verificar el estado del dual stream
-                if (curState === 'CONNECTED' && revState !== 'CONNECTED') {
-                    this.verifyDualStreamState()
-                }
-            })
-            
-            this.isInitialized = true
-            console.log('VideoChat: Agora client initialized successfully')
-            
-        } catch (error) {
-            console.error('VideoChat: Failed to initialize Agora client:', error)
-            this.client = this.createMockClient()
-            this.isInitialized = true
-        }
-    }
-
-    public isWebRTCAvailable(): boolean {
-        return this.securityContext?.canUseWebRTC || false
-    }
-
-    public getSecurityInfo() {
-        return AgoraSecurityManager.getEnvironmentInfo()
-    }
-
-    private async setupScreenClient(): Promise<void> {
+    private setupScreenClient() {
         if (this.screenClient) return
         
-        if (!this.securityContext?.canUseWebRTC) {
-            console.warn('Cannot setup screen client in insecure context')
-            return
-        }
+        this.screenClient = AgoraRTC.createClient({ codec: "vp8", mode: "rtc" })
         
-        try {
-            // Cargar Agora SDK dinámicamente
-            const AgoraRTCModule = await loadAgoraSDK()
-            
-            this.screenClient = AgoraRTCModule.createClient({ codec: "vp8", mode: "rtc" })
-            
-            // Configurar listeners de conexión para el cliente de pantalla
-            this.screenClient.on('connection-state-change', (curState: any, revState: any, reason: any) => {
-                console.log(`Screen client connection state changed: ${revState} -> ${curState}, reason: ${reason}`)
-            })
-            
-            // Usar las mismas funciones de callback para ambos clientes
-            this.screenClient.on('user-published', (user: any, mediaType: any, config: any) => {
-                console.log(`Screen client - User published: ${user.uid}, Media type: ${mediaType}`)
-                this.onUserPublished(user, mediaType, config)
-            })
-            this.screenClient.on('user-unpublished', this.onUserUnpublished)
-            this.screenClient.on('user-left', this.onUserLeft)
-            this.screenClient.on('user-info-updated', this.onUserInfoUpdated)
-            this.screenClient.on('user-joined', (user: any) => {
-                console.log(`Screen client - User joined: ${user.uid}`)
-                this.onUserJoined(user)
-            })
-            
-            console.log('Screen client setup completed with event listeners')
-        } catch (error) {
-            console.error('Failed to setup screen client:', error)
-            this.screenClient = null
-        }
+        // Configurar listeners de conexión para el cliente de pantalla
+        this.screenClient.on('connection-state-change', (curState, revState, reason) => {
+            // Log de conexión para debug si es necesario
+        })
+        
+        // Usar las mismas funciones de callback para ambos clientes
+        this.screenClient.on('user-published', (user, mediaType, config) => {
+            this.onUserPublished(user, mediaType, config)
+        })
+        this.screenClient.on('user-unpublished', this.onUserUnpublished)
+        this.screenClient.on('user-left', this.onUserLeft)
+        this.screenClient.on('user-info-updated', this.onUserInfoUpdated)
+        this.screenClient.on('user-joined', (user) => {
+            this.onUserJoined(user)
+        })
     }
 
     private onUserInfoUpdated = (uid: string) => {
@@ -202,141 +64,107 @@ export class VideoChat {
         signal.emit('user-info-updated', this.remoteUsers[uid])
     }
 
-    private onUserJoined = (user: any) => {
+    private onUserJoined = (user: IAgoraRTCRemoteUser) => {
         this.remoteUsers[user.uid] = user
         signal.emit('user-info-updated', user)
     }
 
-    public onUserPublished = async (user: any, mediaType: any, config?: any) => {
-        console.log(`User published: ${user.uid}, Media type: ${mediaType}`)
-        console.log(`Debug: baseUID="${this.baseUID}", isMyScreenShare check: ${user.uid.toString()} === ${this.baseUID}_screen`)
-        
+    public onUserPublished = async (user: IAgoraRTCRemoteUser, mediaType: "audio" | "video" | "datachannel", config?: IDataChannelConfig) => {
         // No suscribirse a tu propio stream de pantalla compartida
         const isMyScreenShare = user.uid.toString() === `${this.baseUID}_screen`
         if (isMyScreenShare) {
-            console.log('✅ Skipping subscription to own screen share')
             return
         }
         
-        this.remoteUsers[user.uid] = user
-        
-        // Determinar qué cliente usar para la suscripción
-        let clientToUse = this.client
+        // Verificar que el usuario esté realmente en el canal antes de intentar suscribirse
         const isScreenUser = user.uid.toString().endsWith('_screen')
+        let clientToUse = this.client
         
+        // Para usuarios de screen share, usar el screenClient si está disponible
         if (isScreenUser && this.screenClient && this.screenClient.connectionState === 'CONNECTED') {
             clientToUse = this.screenClient
-            console.log('Using screen client for subscription')
+            const remoteUsers = clientToUse.remoteUsers
+            if (!remoteUsers.find(u => u.uid === user.uid)) {
+                return // Usuario no encontrado en el screen client
+            }
         } else if (!isScreenUser) {
-            console.log('Using main client for subscription')
-        } else {
-            console.log('Screen client not available, using main client as fallback')
+            // Para usuarios normales, siempre usar el cliente principal
+            clientToUse = this.client
+            const remoteUsers = clientToUse.remoteUsers
+            if (!remoteUsers.find(u => u.uid === user.uid)) {
+                return // Usuario no encontrado en el main client
+            }
         }
         
-        console.log(`Subscribing to user ${user.uid} with ${clientToUse === this.screenClient ? 'screen' : 'main'} client`)
+        // Verificar que el cliente esté conectado
+        if (clientToUse.connectionState !== 'CONNECTED') {
+            return
+        }
+        
+        // Almacenar el usuario remoto
+        this.remoteUsers[user.uid] = user
         
         try {
             await clientToUse.subscribe(user, mediaType)
-            console.log(`Successfully subscribed to ${user.uid} for ${mediaType}`)
+            
+            if (mediaType === 'audio') {
+                user.audioTrack?.play()
+            }
+
+            // Emitir evento de actualización para que el frontend pueda actualizar la UI
+            signal.emit('user-info-updated', user)
+            
         } catch (error) {
             console.error(`Error subscribing to ${user.uid}:`, error)
+            // Remover el usuario de la lista si la suscripción falla
+            delete this.remoteUsers[user.uid]
             return
-        }
-
-        if (mediaType === 'audio') {
-            user.audioTrack?.play()
-        }
-
-        if (mediaType === 'audio' || mediaType === 'video') {
-            console.log('Emitting user-info-updated for user:', user.uid)
-            console.log('User details for emission:', {
-                uid: user.uid,
-                hasVideo: user.hasVideo,
-                hasAudio: user.hasAudio,
-                videoTrack: !!user.videoTrack,
-                audioTrack: !!user.audioTrack
-            })
-            signal.emit('user-info-updated', user)
         }
     }
 
-    public onUserUnpublished = (user: any, mediaType: any) => {
+    public onUserUnpublished = (user: IAgoraRTCRemoteUser, mediaType: "audio" | "video" | "datachannel") => {
         if (mediaType === 'audio') {
             user.audioTrack?.stop()
         }
     }
 
-    public onUserLeft = (user: any, reason: any) => {
+    public onUserLeft = (user: IAgoraRTCRemoteUser, reason: string) => {
         delete this.remoteUsers[user.uid]
         signal.emit('user-left', user)
     }
 
     public async toggleCamera() {
-        console.log('VideoChat: toggleCamera called')
-        
-        if (!this.securityContext?.canUseWebRTC) {
-            console.warn('Camera not available in insecure context')
-            throw new Error('Camera access requires HTTPS or localhost')
-        }
-        
-        console.log('VideoChat: Current camera track state:', {
-            exists: !!this.cameraTrack,
-            enabled: this.cameraTrack?.enabled,
-            clientState: this.client?.connectionState
-        })
-        
         try {
             if (!this.cameraTrack) {
-                console.log('VideoChat: Creating new camera track...')
-                this.cameraTrack = await AgoraSecurityManager.safeCreateCameraTrack()
-                console.log('VideoChat: Camera track created successfully')
+                this.cameraTrack = await AgoraRTC.createCameraVideoTrack()
                 
                 // Reproducir localmente
                 try {
                     this.cameraTrack.play('local-video')
-                    console.log('VideoChat: Camera track playing locally')
                 } catch (playError) {
-                    console.log('VideoChat: Local video element not found, will play when available')
+                    // Local video element not found, will play when available
                 }
 
                 // Publicar la cámara en el cliente principal si está conectado
                 if (this.client.connectionState === 'CONNECTED') {
-                    console.log('VideoChat: Publishing camera track...')
                     await this.republishAllTracks() // Usar método seguro
-                    console.log('VideoChat: Camera track published successfully')
-                } else {
-                    console.log('VideoChat: Client not connected, will publish when connected')
                 }
 
-                console.log('VideoChat: toggleCamera returning false (camera now active)')
                 return false // Retornar false porque ahora está activa (no muted)
             }
             
-            console.log('VideoChat: Toggling existing camera track...')
             const newState = !this.cameraTrack.enabled
             await this.cameraTrack.setEnabled(newState)
-            console.log('VideoChat: Camera enabled state changed to:', newState)
 
             // Republicar cuando cambia el estado de la cámara
             if (this.client.connectionState === 'CONNECTED') {
-                console.log('VideoChat: Republishing tracks after camera toggle...')
                 await this.republishAllTracks()
-                console.log('VideoChat: Tracks republished successfully')
             }
 
             const returnValue = !this.cameraTrack.enabled
-            console.log('VideoChat: toggleCamera returning:', returnValue)
             return returnValue
-        } catch (error: any) {
+        } catch (error) {
             console.error('VideoChat: Error in toggleCamera:', error)
-            
-            // Manejar errores específicos de contexto de seguridad
-            if (error.message?.includes('context is limited') || 
-                error.message?.includes('enumerateDevices') ||
-                error.message?.includes('getUserMedia')) {
-                throw new Error('Camera access blocked by browser security. Please use HTTPS or localhost.')
-            }
-            
             // En caso de error, asumir que la cámara está muted
             return true
         }
@@ -345,59 +173,28 @@ export class VideoChat {
     // TODO: Set it up so microphone gets muted and unmuted instead of enabled and disabled
 
     public async toggleMicrophone() {
-        console.log('VideoChat: toggleMicrophone called')
-        
-        if (!this.securityContext?.canUseWebRTC) {
-            console.warn('Microphone not available in insecure context')
-            throw new Error('Microphone access requires HTTPS or localhost')
-        }
-        
-        console.log('VideoChat: Current microphone track state:', {
-            exists: !!this.microphoneTrack,
-            muted: this.microphoneTrack?.muted,
-            clientState: this.client?.connectionState
-        })
-        
         try {
             if (!this.microphoneTrack) {
-                console.log('VideoChat: Creating new microphone track...')
-                this.microphoneTrack = await AgoraSecurityManager.safeCreateMicrophoneTrack()
-                console.log('VideoChat: Microphone track created successfully')
+                this.microphoneTrack = await AgoraRTC.createMicrophoneAudioTrack()
 
                 // Publicar el micrófono en el cliente principal si está conectado
                 if (this.client.connectionState === 'CONNECTED') {
-                    console.log('VideoChat: Publishing microphone track...')
                     await this.republishAllTracks() // Usar método seguro
-                    console.log('VideoChat: Microphone track published successfully')
-                } else {
-                    console.log('VideoChat: Client not connected, will publish when connected')
                 }
 
-                console.log('VideoChat: toggleMicrophone returning false (microphone now active)')
                 return false // Retornar false porque ahora está activo (no muted)
             }
             
-            console.log('VideoChat: Toggling existing microphone track...')
             const newMutedState = !this.microphoneTrack.muted
             await this.microphoneTrack.setMuted(newMutedState)
-            console.log('VideoChat: Microphone muted state changed to:', newMutedState)
 
             // No necesitamos republicar para el micrófono al cambiar mute state
             // ya que solo cambia el estado muted, no la publicación
 
             const returnValue = this.microphoneTrack.muted
-            console.log('VideoChat: toggleMicrophone returning:', returnValue)
             return returnValue
-        } catch (error: any) {
+        } catch (error) {
             console.error('VideoChat: Error in toggleMicrophone:', error)
-            
-            // Manejar errores específicos de contexto de seguridad
-            if (error.message?.includes('context is limited') || 
-                error.message?.includes('enumerateDevices') ||
-                error.message?.includes('getUserMedia')) {
-                throw new Error('Microphone access blocked by browser security. Please use HTTPS or localhost.')
-            }
-            
             // En caso de error, asumir que el micrófono está muted
             return true
         }
@@ -412,12 +209,9 @@ export class VideoChat {
     private resetRemoteUsers() {
         this.remoteUsers = {}
         signal.emit('reset-users')
-    }    public async joinChannel(channel: string, uid: string, realmId: string) {
-        if (!this.securityContext?.canUseWebRTC) {
-            console.warn('Cannot join channel: WebRTC not available in this context')
-            return Promise.reject(new Error('WebRTC requires HTTPS or localhost'))
-        }
+    }
 
+    public async joinChannel(channel: string, uid: string, realmId: string) {
         if (this.channelTimeout) {
             clearTimeout(this.channelTimeout)
         }
@@ -441,7 +235,7 @@ export class VideoChat {
                 
                 // Pequeña pausa para asegurar desconexión completa
                 await new Promise(resolve => setTimeout(resolve, 200))
-                
+
                 console.log(`Joining channel: ${uniqueChannelId} with UID: ${uid}`)
                 
                 // Configurar cliente para mejor rendimiento
@@ -482,14 +276,6 @@ export class VideoChat {
 
             } catch (error: any) {
                 console.error('Error joining channel:', error)
-                
-                // Manejar errores específicos de contexto de seguridad
-                if (error.message?.includes('context is limited') || 
-                    error.message?.includes('enumerateDevices') ||
-                    error.message?.includes('getUserMedia')) {
-                    throw new Error('Video chat requires HTTPS or localhost')
-                }
-                
                 // Si hay un error de UID conflict, solo hacer limpieza y reintentar una vez con el UID original
                 if (error?.code === 'UID_CONFLICT') {
                     console.log('UID conflict detected, attempting single retry...')
@@ -534,7 +320,7 @@ export class VideoChat {
     private async joinScreenChannel(uniqueChannelId: string) {
         try {
             console.log('Setting up screen client...')
-            await this.setupScreenClient()
+            this.setupScreenClient()
             if (!this.screenClient) {
                 console.error('Failed to setup screen client')
                 return
@@ -601,50 +387,56 @@ export class VideoChat {
 
     public async toggleScreenShare(): Promise<boolean> {
         try {
+            // Verificar que AgoraRTC está disponible
+            if (!AgoraRTC || typeof AgoraRTC.createScreenVideoTrack !== 'function') {
+                console.error('AgoraRTC is not available or createScreenVideoTrack is not supported')
+                throw new Error('Screen sharing is not supported in this environment')
+            }
+
             if (this.isScreenSharing) {
                 // Detener compartir pantalla
-                console.log('Stopping screen share...')
                 
                 // Desconectar y limpiar cliente de pantalla
                 if (this.screenClient && this.screenClient.connectionState === 'CONNECTED') {
-                    console.log('Leaving screen channel...')
                     await this.screenClient.leave()
-                    console.log('Screen client disconnected')
                 }
                 
                 if (this.screenTrack) {
-                    console.log('Stopping and closing screen track...')
                     this.screenTrack.stop()
                     this.screenTrack.close()
                     this.screenTrack = null
-                    console.log('Screen track stopped and cleaned up')
                 }
 
                 this.isScreenSharing = false
                 signal.emit('local-screen-share-stopped') // Notificar al frontend
-                console.log('Screen sharing stopped')
+                
+                // Refrescar suscripciones al detener screen share también
+                setTimeout(() => {
+                    this.refreshExistingSubscriptions()
+                }, 500) // Delay más corto al detener
+                
                 return false
             } else {
                 // Iniciar compartir pantalla
-                console.log('Starting screen share...')
                 
                 try {
+                    // Verificar que estamos en un contexto seguro (HTTPS)
+                    if (typeof window !== 'undefined' && !window.isSecureContext) {
+                        throw new Error('Screen sharing requires HTTPS')
+                    }
+
                     // Crear track de pantalla
-                    const screenResult = await AgoraSecurityManager.safeCreateScreenTrack({
+                    const screenResult = await AgoraRTC.createScreenVideoTrack({
                         encoderConfig: "1080p_1", // Calidad de video
                         optimizationMode: "motion", // Optimizar para movimiento
                     })
 
-                    console.log('Screen result created:', screenResult)
-
                     // Agora puede devolver un track único o un array [video, audio]
-                    let videoTrack: any
+                    let videoTrack: ILocalVideoTrack
                     if (Array.isArray(screenResult)) {
-                        videoTrack = screenResult[0] as any
-                        console.log('Using video track from array')
+                        videoTrack = screenResult[0] as ILocalVideoTrack
                     } else {
-                        videoTrack = screenResult as any
-                        console.log('Using single video track')
+                        videoTrack = screenResult as ILocalVideoTrack
                     }
 
                     // Verificar que el track es válido
@@ -652,48 +444,36 @@ export class VideoChat {
                         throw new Error('Invalid screen video track')
                     }
 
-                    console.log('Screen track details:', {
-                        type: videoTrack.constructor.name,
-                        enabled: videoTrack.enabled
-                    })
-
                     this.screenTrack = videoTrack
                     this.isScreenSharing = true
 
-                    console.log('Screen track created and stored successfully')
-
                     // Detectar cuando el usuario pare de compartir desde el navegador
                     this.screenTrack.on("track-ended", async () => {
-                        console.log('Screen share ended by user')
                         await this.toggleScreenShare()
                     })
 
                     // Emitir señal de pantalla compartida iniciada con el track INMEDIATAMENTE
-                    console.log('Emitting local-screen-share-started signal with track:', this.screenTrack)
                     signal.emit('local-screen-share-started', this.screenTrack)
 
                     // Luego conectar cliente de pantalla y publicar
                     if (this.currentChannel && this.currentRealmId) {
-                        console.log('Current channel found, joining screen channel...')
-                        console.log('Current channel:', this.currentChannel)
-                        console.log('Current realmId:', this.currentRealmId)
-                        
                         // Usar el realmId correcto
                         const uniqueChannelId = this.createUniqueChannelId(this.currentRealmId, this.currentChannel)
-                        console.log('Generated uniqueChannelId for screen:', uniqueChannelId)
                         
                         // Unir inmediatamente sin delay para mejor sincronización
                         try {
                             await this.joinScreenChannel(uniqueChannelId)
-                            console.log('Screen channel joined successfully')
                         } catch (error) {
                             console.error('Error joining screen channel immediately:', error)
                         }
                     } else {
                         console.warn('No current channel or realmId, cannot join screen channel')
-                        console.warn('Current channel:', this.currentChannel)
-                        console.warn('Current realmId:', this.currentRealmId)
                     }
+                    
+                    // Refrescar las suscripciones existentes para mantener los streams visibles
+                    setTimeout(() => {
+                        this.refreshExistingSubscriptions()
+                    }, 1000) // Pequeño delay para que se establezca el screen share
                     
                     return true
                 } catch (screenError) {
@@ -959,7 +739,6 @@ export class VideoChat {
             baseUID: this.baseUID
         }
         
-        console.log('Debug info requested:', info)
         return info
     }
 
@@ -996,6 +775,67 @@ export class VideoChat {
             isLocal: true
         }
     }
+
+    /**
+     * Refresca las suscripciones de todos los usuarios existentes para asegurar 
+     * que los streams de video se mantengan visibles después de cambios de configuración
+     */
+    private async refreshExistingSubscriptions() {
+        try {
+            // Obtener todos los usuarios remotos del cliente principal
+            const mainClientUsers = this.client.remoteUsers
+            
+            for (const user of mainClientUsers) {
+                try {
+                    // Re-suscribirse a video si existe
+                    if (user.videoTrack && user.hasVideo) {
+                        // Forzar re-suscripción para evitar el bug de pantalla negra
+                        await this.client.unsubscribe(user, 'video')
+                        await this.client.subscribe(user, 'video')
+                    }
+                    
+                    // Re-suscribirse a audio si existe
+                    if (user.audioTrack && user.hasAudio) {
+                        await this.client.unsubscribe(user, 'audio')
+                        await this.client.subscribe(user, 'audio')
+                        // Asegurar que el audio siga reproduciéndose
+                        user.audioTrack.play()
+                    }
+                    
+                    // Re-emitir el evento para actualizar la UI
+                    signal.emit('user-info-updated', user)
+                } catch (userError) {
+                    console.error(`Error refreshing subscription for user ${user.uid}:`, userError)
+                    // Continuar con otros usuarios aunque falle uno
+                }
+            }
+            
+            // Si hay un screen client, hacer lo mismo
+            if (this.screenClient && this.screenClient.connectionState === 'CONNECTED') {
+                const screenClientUsers = this.screenClient.remoteUsers
+                
+                for (const user of screenClientUsers) {
+                    try {
+                        if (user.videoTrack && user.hasVideo) {
+                            await this.screenClient.unsubscribe(user, 'video')
+                            await this.screenClient.subscribe(user, 'video')
+                            signal.emit('user-info-updated', user)
+                        }
+                    } catch (userError) {
+                        console.error(`Error refreshing screen subscription for user ${user.uid}:`, userError)
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error refreshing existing subscriptions:', error)
+        }
+    }
+
+    // Función pública para forzar un refresh de suscripciones desde el frontend
+    public async forceRefreshSubscriptions() {
+        await this.refreshExistingSubscriptions()
+    }
 }
 
 export const videoChat = new VideoChat()
@@ -1003,3 +843,6 @@ export const videoChat = new VideoChat()
 // Funciones helper para debug
 export const getVideoChatDebugInfo = () => videoChat.getConnectionDebugInfo()
 export const getVideoChatTracksState = () => videoChat.getTracksState()
+
+// Función para forzar refresh de suscripciones cuando las cámaras se pongan en negro
+export const forceRefreshVideoSubscriptions = () => videoChat.forceRefreshSubscriptions()

@@ -14,7 +14,6 @@ import VideoDebugPanel from '@/components/VideoChat/VideoDebugPanel'
 import NetworkTestButton from '@/components/VideoChat/NetworkTestButton'
 import VideoChatDebugPanel from '@/components/VideoChat/VideoChatDebugPanel'
 import { AgoraVideoChatProvider } from '../hooks/useVideoChat'
-import SecurityWarning from '../../components/VideoChat/SecurityWarning'
 import { useScreenShare } from '../hooks/useScreenShare'
 
 type PlayClientProps = {
@@ -65,7 +64,6 @@ const PlayClient:React.FC<PlayClientProps> = ({ mapData, username, access_token,
 
     return (
         <AgoraVideoChatProvider uid={uid}>
-            <SecurityWarning />
             {!showIntroScreen && <div className='relative w-full h-screen flex flex-col-reverse sm:flex-col'>
                 <VideoBar />
                 <PixiApp 

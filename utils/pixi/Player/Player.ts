@@ -205,7 +205,6 @@ export class Player {
         PIXI.Ticker.shared.add(this.move)
 
         if (this.isLocal) {
-            console.log('Frontend - Emitting movePlayer:', { x, y })
             server.socket.emit('movePlayer', { x, y })
         }
     }
@@ -292,13 +291,8 @@ export class Player {
     public checkIfShouldJoinChannel = (newTilePosition: Point) => {
         if (!this.isLocal) return
 
-        console.log('Player - checkIfShouldJoinChannel called with position:', newTilePosition)
-        console.log('Player - Current proximityId:', this.playApp.proximityId)
-        console.log('Player - Current channel:', this.currentChannel)
-
         const tile = this.playApp.realmData.rooms[this.playApp.currentRoomIndex].tilemap[`${newTilePosition.x}, ${newTilePosition.y}`]
         if (tile && tile.privateAreaId) {
-            console.log('Player - In private area:', tile.privateAreaId)
             if (tile.privateAreaId !== this.currentChannel) {
                 this.currentChannel = tile.privateAreaId
                 videoChat.joinChannel(tile.privateAreaId, this.playApp.uid + this.username, this.playApp.realmId)
@@ -306,17 +300,12 @@ export class Player {
             }
         } else {
             if (this.playApp.proximityId) {
-                console.log('Player - Has proximityId, should join proximity channel:', this.playApp.proximityId)
                 if (this.playApp.proximityId !== this.currentChannel) {
-                    console.log('Player - Joining proximity channel:', this.playApp.proximityId)
                     this.currentChannel = this.playApp.proximityId
                     videoChat.joinChannel(this.playApp.proximityId, this.playApp.uid + this.username, this.playApp.realmId)
                     this.playApp.fadeOutTiles()
-                } else {
-                    console.log('Player - Already in correct proximity channel')
                 }
             } else if (this.currentChannel !== 'local') {
-                console.log('Player - No proximityId, leaving channel')
                 this.currentChannel = 'local'
                 videoChat.leaveChannel()
                 this.playApp.fadeOutTiles()
