@@ -75,7 +75,7 @@ const VideoBar:React.FC = () => {
             
             // Solo filtrar la pantalla compartida del usuario local, NO su cámara
             if (localUserUID && baseUID === localUserUID && isScreenSharing) {
-                console.log(`VideoBar - Filtering own screen share: ${uid} (local user: ${localUserUID})`)
+                
                 return
             }
             
@@ -104,7 +104,7 @@ const VideoBar:React.FC = () => {
                 // Solo log cuando el número de usuarios cambia o hay contenido
                 const userCountChanged = Object.keys(updated).length !== Object.keys(prev).length
                 if (userCountChanged || hasContent) {
-                    console.log('VideoBar - Updated remote users:', Object.keys(updated))
+                    
                 }
                 return updated
             })
@@ -112,7 +112,7 @@ const VideoBar:React.FC = () => {
 
         // Nuevo listener para detectar screen shares desde ScreenShareViewer
         const onScreenShareDetected = (data: { user: IAgoraRTCRemoteUser, isScreenShare: boolean }) => {
-            console.log('VideoBar - Screen share detected from ScreenShareViewer:', data)
+            
             if (data.isScreenShare) {
                 onUserInfoUpdated(data.user)
             }
@@ -120,8 +120,8 @@ const VideoBar:React.FC = () => {
 
         // Listener para solicitudes de información de cámara
         const onGetUserCamera = (targetBaseUID: string) => {
-            console.log(`VideoBar - Looking for camera user with baseUID: ${targetBaseUID}`)
-            console.log(`VideoBar - Current remote users:`, Object.keys(remoteUsers))
+            
+            
             
             // Buscar el usuario de cámara en los usuarios remotos actuales
             Object.values(remoteUsers).forEach(remoteUser => {
@@ -137,27 +137,27 @@ const VideoBar:React.FC = () => {
                 
                 if (remoteBaseUID === targetBaseUID && !remoteUser.isScreenSharing) {
                     if (remoteUser.user?.videoTrack) {
-                        console.log(`VideoBar - Found camera user for modal: ${remoteUser.uid}`)
+                        
                         signal.emit('user-info-updated', remoteUser.user)
                     } else {
-                        console.log(`VideoBar - Found user but no video track: ${remoteUser.uid}`)
+                        
                     }
                 }
             })
             
             // También enviar información sobre todos los usuarios remotos
-            console.log(`VideoBar - Sending all remote users info for debugging`)
+            
             const allUsersArray = Object.values(remoteUsers) || []
-            console.log(`VideoBar - All users array:`, allUsersArray)
+            
             signal.emit('get-all-remote-users', allUsersArray)
             
             // Si el usuario objetivo es el usuario local, obtener su información
             if (targetBaseUID === localUserUID) {
-                console.log(`VideoBar - Target is local user, getting local info`)
+                
                 // Importar videoChat para obtener información local
                 import('../../utils/video-chat/video-chat').then(({ videoChat }) => {
                     const localInfo = videoChat.getLocalUserInfo()
-                    console.log(`VideoBar - Local user info:`, localInfo)
+                    
                     if (localInfo.hasVideo) {
                         signal.emit('user-info-updated', localInfo)
                     }
@@ -166,7 +166,7 @@ const VideoBar:React.FC = () => {
         }
 
         const onLocalUserUID = (uid: string) => {
-            console.log('VideoBar - Local user UID received:', uid)
+            
             setLocalUserUID(uid)
         }
 
@@ -214,8 +214,8 @@ const VideoBar:React.FC = () => {
                         userGroups[user.baseUID].push(user)
                     })
 
-                    console.log('VideoBar - User groups:', userGroups)
-                    console.log('VideoBar - Total remote users:', Object.keys(remoteUsers).length)
+                    
+                    
 
                     // Renderizar cada grupo de usuario
                     return Object.entries(userGroups).map(([baseUID, users]) => {
@@ -284,15 +284,15 @@ function RemoteUserScreenShare({ user, onFullscreen }: { user: RemoteUser; onFul
                 containerRef.current.removeChild(containerRef.current.firstChild)
             }
 
-            console.log(`RemoteUserScreenShare - Playing video track for ${user.uid}`)
+            
             try {
                 user.user.videoTrack.play(`remote-screen-${user.uid}`)
-                console.log(`RemoteUserScreenShare - Video track playing successfully for ${user.uid}`)
+                
             } catch (error) {
-                console.error(`RemoteUserScreenShare - Error playing video track for ${user.uid}:`, error)
+                
             }
         } else {
-            console.log(`RemoteUserScreenShare - No video track available for ${user.uid}`)
+            
         }
     }, [user])
 

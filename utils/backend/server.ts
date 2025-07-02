@@ -58,7 +58,7 @@ class Server {
             })
 
             this.socket.on('connect_error', (err: any) => {
-                console.error('Connection error:', err)
+                // Connection error
                 resolve({
                     success: false,
                     errorMessage: err.message

@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react'
 import signal from '@/utils/signal'
 import { ILocalVideoTrack } from 'agora-rtc-sdk-ng'
-import { Monitor, X, ArrowClockwise } from '@phosphor-icons/react'
+import { Monitor, X, ArrowClockwise, WifiX } from '@phosphor-icons/react'
 import { useVideoChat } from '@/app/hooks/useVideoChat'
 
 const LocalScreenSharePreview: React.FC = () => {
-    const { toggleScreenShare, refreshAllStreams } = useVideoChat()
+    const { toggleScreenShare, refreshAllStreams, recreateCorruptedTracks } = useVideoChat()
     const [isVisible, setIsVisible] = useState(false)
     const [screenTrack, setScreenTrack] = useState<ILocalVideoTrack | null>(null)
     const previewRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const onScreenShareStarted = (track: ILocalVideoTrack) => {
-            console.log('Local screen share started, showing preview:', track)
             setScreenTrack(track)
             setIsVisible(true)
             
@@ -20,30 +19,25 @@ const LocalScreenSharePreview: React.FC = () => {
             setTimeout(() => {
                 if (previewRef.current && track) {
                     try {
-                        console.log('Playing screen track in preview element')
                         track.play(previewRef.current)
-                        console.log('Screen track playing successfully')
                     } catch (error) {
-                        console.error('Error playing screen track in preview:', error)
+                        // Error playing screen track in preview
                     }
                 }
             }, 100)
         }
 
         const onScreenShareEnded = () => {
-            console.log('Local screen share ended, hiding preview')
             setIsVisible(false)
             setScreenTrack(null)
         }
 
         const onRefreshScreenShare = (track: ILocalVideoTrack) => {
-            console.log('Refreshing local screen share preview')
             if (previewRef.current && track) {
                 try {
                     track.play(previewRef.current)
-                    console.log('Screen track refreshed successfully')
                 } catch (error) {
-                    console.error('Error refreshing screen track:', error)
+                    // Error refreshing screen track
                 }
             }
         }
@@ -63,12 +57,10 @@ const LocalScreenSharePreview: React.FC = () => {
     // Effect adicional para reproducir el track cuando el componente está listo
     useEffect(() => {
         if (screenTrack && previewRef.current && isVisible) {
-            console.log('Attempting to play screen track in effect')
             try {
                 screenTrack.play(previewRef.current)
-                console.log('Screen track playing from effect')
             } catch (error) {
-                console.error('Error playing screen track from effect:', error)
+                // Error playing screen track from effect
             }
         }
     }, [screenTrack, isVisible])
@@ -79,6 +71,10 @@ const LocalScreenSharePreview: React.FC = () => {
 
     const handleRefreshStreams = () => {
         refreshAllStreams()
+    }
+
+    const handleRecreateTraks = () => {
+        recreateCorruptedTracks()
     }
 
     if (!isVisible) {
@@ -99,7 +95,14 @@ const LocalScreenSharePreview: React.FC = () => {
                         className="p-1 hover:bg-blue-600 hover:bg-opacity-60 rounded transition-colors"
                         title="Refrescar streams si se ven en negro"
                     >
-                        <ArrowClockwise className="w-5 h-5" />
+                        <ArrowClockwise className="w-4 h-4" />
+                    </button>
+                    <button 
+                        onClick={handleRecreateTraks}
+                        className="p-1 hover:bg-yellow-600 hover:bg-opacity-60 rounded transition-colors"
+                        title="Recrear tracks corruptos si la cámara no funciona"
+                    >
+                        <WifiX className="w-4 h-4" />
                     </button>
                     <button 
                         onClick={handleStopSharing}
@@ -131,7 +134,7 @@ const LocalScreenSharePreview: React.FC = () => {
             
             <div className="text-xs text-gray-300 p-2 text-center bg-black bg-opacity-60">
                 <p>Vista previa de tu pantalla</p>
-                <p className="text-gray-400 mt-1">💡 Si las cámaras se ven en negro, usa el botón ↻</p>
+                <p className="text-gray-400 mt-1">💡 Pantallas en negro? Usa ↻ | Cámara no funciona? Usa ⚡</p>
             </div>
         </div>
     )

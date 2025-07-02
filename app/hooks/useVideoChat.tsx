@@ -4,7 +4,7 @@ import AgoraRTC, {
 } from 'agora-rtc-react'
 import { IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng'
 import signal from '../../utils/signal'
-import { videoChat, forceRefreshVideoSubscriptions, forceRefreshAllStreams } from '../../utils/video-chat/video-chat'
+import { videoChat, forceRefreshVideoSubscriptions, forceRefreshAllStreams, recreateCorruptedTracks } from '../../utils/video-chat/video-chat'
 
 interface VideoChatContextType {
     toggleCamera: () => void
@@ -12,6 +12,7 @@ interface VideoChatContextType {
     toggleScreenShare: () => void
     refreshVideoSubscriptions: () => void
     refreshAllStreams: () => void
+    recreateCorruptedTracks: () => void
     isCameraMuted: boolean
     isMicMuted: boolean
     isScreenSharing: boolean
@@ -76,7 +77,7 @@ const VideoChatProvider: React.FC<VideoChatProviderProps> = ({ children }) => {
             const muted = await videoChat.toggleCamera()
             setIsCameraMuted(muted)
         } catch (error) {
-            console.error('Hook: Error in toggleCamera:', error)
+            // Error in toggleCamera
         }
     }
 
@@ -85,7 +86,7 @@ const VideoChatProvider: React.FC<VideoChatProviderProps> = ({ children }) => {
             const muted = await videoChat.toggleMicrophone()
             setIsMicMuted(muted)
         } catch (error) {
-            console.error('Hook: Error in toggleMicrophone:', error)
+            // Error in toggleMicrophone
         }
     }
 
@@ -94,7 +95,7 @@ const VideoChatProvider: React.FC<VideoChatProviderProps> = ({ children }) => {
             const isSharing = await videoChat.toggleScreenShare()
             setIsScreenSharing(isSharing)
         } catch (error) {
-            console.error('Hook: Error in toggleScreenShare:', error)
+            // Error in toggleScreenShare
         }
     }
 
@@ -102,7 +103,7 @@ const VideoChatProvider: React.FC<VideoChatProviderProps> = ({ children }) => {
         try {
             await forceRefreshVideoSubscriptions()
         } catch (error) {
-            console.error('Hook: Error in refreshVideoSubscriptions:', error)
+            // Error in refreshVideoSubscriptions
         }
     }
 
@@ -110,7 +111,15 @@ const VideoChatProvider: React.FC<VideoChatProviderProps> = ({ children }) => {
         try {
             await forceRefreshAllStreams()
         } catch (error) {
-            console.error('Hook: Error in refreshAllStreams:', error)
+            // Error in refreshAllStreams
+        }
+    }
+
+    const recreateCorruptedTracksHook = async () => {
+        try {
+            await recreateCorruptedTracks()
+        } catch (error) {
+            // Error in recreateCorruptedTracks
         }
     }
 
@@ -120,6 +129,7 @@ const VideoChatProvider: React.FC<VideoChatProviderProps> = ({ children }) => {
         toggleScreenShare,
         refreshVideoSubscriptions,
         refreshAllStreams,
+        recreateCorruptedTracks: recreateCorruptedTracksHook,
         isCameraMuted,
         isMicMuted,
         isScreenSharing,

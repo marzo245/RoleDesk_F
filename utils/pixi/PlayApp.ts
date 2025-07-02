@@ -117,7 +117,7 @@ export class PlayApp extends App {
     private async syncOtherPlayers() {
         const {data, error} = await server.getPlayersInRoom(this.currentRoomIndex)
         if (error) {
-            console.error('Failed to get player positions in room:', error)
+            // Failed to get player positions in room
             return
         }
 

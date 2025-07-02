@@ -30,10 +30,7 @@ export class VideoChat {
         
         // Agregar listener de conexión para detectar problemas de red
         this.client.on('connection-state-change', (curState, revState, reason) => {
-            // Si el cliente se reconecta, verificar el estado del dual stream
-            if (curState === 'CONNECTED' && revState !== 'CONNECTED') {
-                this.verifyDualStreamState()
-            }
+            // Cliente reconectado
         })
 
         // Agregar listeners para eventos de visibilidad y fullscreen
@@ -47,7 +44,7 @@ export class VideoChat {
         
         // Configurar listeners de conexión para el cliente de pantalla
         this.screenClient.on('connection-state-change', (curState, revState, reason) => {
-            // Log de conexión para debug si es necesario
+            // Conexión de pantalla compartida
         })
         
         // Usar las mismas funciones de callback para ambos clientes
@@ -118,7 +115,7 @@ export class VideoChat {
             signal.emit('user-info-updated', user)
             
         } catch (error) {
-            console.error(`Error subscribing to ${user.uid}:`, error)
+            // Error subscribing to user, continue
             // Remover el usuario de la lista si la suscripción falla
             delete this.remoteUsers[user.uid]
             return
@@ -167,7 +164,6 @@ export class VideoChat {
             const returnValue = !this.cameraTrack.enabled
             return returnValue
         } catch (error) {
-            console.error('VideoChat: Error in toggleCamera:', error)
             // En caso de error, asumir que la cámara está muted
             return true
         }
@@ -197,7 +193,6 @@ export class VideoChat {
             const returnValue = this.microphoneTrack.muted
             return returnValue
         } catch (error) {
-            console.error('VideoChat: Error in toggleMicrophone:', error)
             // En caso de error, asumir que el micrófono está muted
             return true
         }
@@ -239,10 +234,8 @@ export class VideoChat {
                 // Pequeña pausa para asegurar desconexión completa
                 await new Promise(resolve => setTimeout(resolve, 200))
 
-                console.log(`Joining channel: ${uniqueChannelId} with UID: ${uid}`)
-                
                 // Configurar cliente para mejor rendimiento
-                await this.ensureDualStreamEnabled()
+                // await this.ensureDualStreamEnabled() // Eliminado: función ya no existe
                 
                 // Usar timeout más largo para conexiones problemáticas
                 const joinPromise = this.client.join(process.env.NEXT_PUBLIC_AGORA_APP_ID!, uniqueChannelId, token, uid)
@@ -253,9 +246,6 @@ export class VideoChat {
                 await Promise.race([joinPromise, timeoutPromise])
                 this.currentChannel = channel
                 this.currentRealmId = realmId // Asegurar que se guarda de nuevo
-                console.log('Successfully joined channel')
-                console.log('Channel state after join - currentChannel:', this.currentChannel)
-                console.log('Channel state after join - currentRealmId:', this.currentRealmId)
 
                 // Publicar tracks disponibles
                 const tracksToPublish = []
@@ -269,7 +259,6 @@ export class VideoChat {
                 
                 if (tracksToPublish.length > 0) {
                     await this.client.publish(tracksToPublish)
-                    console.log('Published tracks:', tracksToPublish.length)
                 }
 
                 // Si ya hay pantalla compartida activa, conectar el cliente de pantalla también
@@ -278,18 +267,14 @@ export class VideoChat {
                 }
 
             } catch (error: any) {
-                console.error('Error joining channel:', error)
                 // Si hay un error de UID conflict, solo hacer limpieza y reintentar una vez con el UID original
                 if (error?.code === 'UID_CONFLICT') {
-                    console.log('UID conflict detected, attempting single retry...')
                     try {
                         // Limpieza más agresiva
                         await this.forceCleanup()
                         await new Promise(resolve => setTimeout(resolve, 2000)) // Espera más tiempo
                         
                         // Intentar de nuevo con el UID original (no crear uno nuevo)
-                        console.log(`Retrying with original UID: ${uid}`)
-                        
                         const token = await generateToken(this.createUniqueChannelId(realmId, channel))
                         await this.client.join(process.env.NEXT_PUBLIC_AGORA_APP_ID!, this.createUniqueChannelId(realmId, channel), token, uid)
                         this.currentChannel = channel
@@ -312,7 +297,6 @@ export class VideoChat {
                             await this.joinScreenChannel(this.createUniqueChannelId(this.currentRealmId, this.currentChannel))
                         }
                     } catch (retryError) {
-                        console.error('Failed to resolve UID conflict with original UID:', retryError)
                         // No crear más UIDs únicos, simplemente fallar
                     }
                 }
@@ -322,23 +306,16 @@ export class VideoChat {
 
     private async joinScreenChannel(uniqueChannelId: string) {
         try {
-            console.log('Setting up screen client...')
             this.setupScreenClient()
             if (!this.screenClient) {
-                console.error('Failed to setup screen client')
                 return
             }
             
             const screenUID = `${this.baseUID}_screen`
-            console.log(`🖥️ Starting screen share with baseUID="${this.baseUID}", screenUID="${screenUID}"`)
-            console.log(`Generating token for screen channel: ${uniqueChannelId}`)
             const token = await generateToken(uniqueChannelId)
             if (!token) {
-                console.error('Failed to generate token for screen channel')
                 return
             }
-
-            console.log(`Joining screen channel with UID: ${screenUID}`)
             
             // Timeout para el cliente de pantalla también
             const joinPromise = this.screenClient.join(process.env.NEXT_PUBLIC_AGORA_APP_ID!, uniqueChannelId, token, screenUID)
@@ -347,17 +324,12 @@ export class VideoChat {
             })
             
             await Promise.race([joinPromise, timeoutPromise])
-            console.log('Screen client successfully joined channel')
             
             if (this.screenTrack) {
-                console.log('Publishing screen track on separate client...')
                 await this.screenClient.publish([this.screenTrack])
-                console.log('Screen track published successfully on separate client')
-            } else {
-                console.error('No screen track available to publish')
             }
         } catch (error) {
-            console.error('Error joining screen channel:', error)
+            // Error joining screen channel
         }
     }
 
@@ -392,7 +364,6 @@ export class VideoChat {
         try {
             // Verificar que AgoraRTC está disponible
             if (!AgoraRTC || typeof AgoraRTC.createScreenVideoTrack !== 'function') {
-                console.error('AgoraRTC is not available or createScreenVideoTrack is not supported')
                 throw new Error('Screen sharing is not supported in this environment')
             }
 
@@ -467,10 +438,10 @@ export class VideoChat {
                         try {
                             await this.joinScreenChannel(uniqueChannelId)
                         } catch (error) {
-                            console.error('Error joining screen channel immediately:', error)
+                            // Error joining screen channel
                         }
                     } else {
-                        console.warn('No current channel or realmId, cannot join screen channel')
+                        // No current channel or realmId, cannot join screen channel
                     }
                     
                     // Refrescar las suscripciones existentes para mantener los streams visibles
@@ -480,13 +451,11 @@ export class VideoChat {
                     
                     return true
                 } catch (screenError) {
-                    console.error('Error creating or publishing screen track:', screenError)
                     this.isScreenSharing = false
                     return false
                 }
             }
         } catch (error) {
-            console.error('Error toggling screen share:', error)
             this.isScreenSharing = false
             return false
         }
@@ -522,14 +491,12 @@ export class VideoChat {
                 await this.client.publish(validTracks)
             }
         } catch (error) {
-            console.error('VideoChat: Error republishing tracks:', error)
+            // Error republishing tracks
         }
     }
 
     public async destroy() {
         try {
-            console.log('Destroying video chat instance...')
-            
             // Limpiar timeout si existe
             if (this.channelTimeout) {
                 clearTimeout(this.channelTimeout)
@@ -579,9 +546,8 @@ export class VideoChat {
             this.isDualStreamEnabled = false // Resetear flag de dual stream
             this.remoteUsers = {}
             
-            console.log('Video chat destroyed successfully')
         } catch (error) {
-            console.error('Error destroying video chat:', error)
+            // Error destroying video chat
         }
     }
 
@@ -626,87 +592,9 @@ export class VideoChat {
             this.isScreenSharing = false
             this.isDualStreamEnabled = false // Resetear flag de dual stream
             
-            console.log('Force cleanup completed')
         } catch (error) {
-            console.log('Force cleanup error (this is usually normal):', error)
+            // Force cleanup error (this is usually normal)
         }
-    }
-
-    private async ensureDualStreamEnabled(): Promise<void> {
-        try {
-            console.log('ensureDualStreamEnabled: Current state:', {
-                isDualStreamEnabled: this.isDualStreamEnabled,
-                connectionState: this.client.connectionState
-            })
-            
-            // Si ya está marcado como habilitado según nuestro flag, no hacer nada
-            if (this.isDualStreamEnabled) {
-                console.log('ensureDualStreamEnabled: Already enabled according to flag, skipping')
-                return
-            }
-            
-            // Intentar habilitar dual stream con manejo robusto de errores
-            console.log('ensureDualStreamEnabled: Attempting to enable dual stream...')
-            try {
-                await this.client.enableDualStream()
-                this.isDualStreamEnabled = true
-                console.log('ensureDualStreamEnabled: Successfully enabled dual stream')
-            } catch (error: any) {
-                console.log('ensureDualStreamEnabled: Error details:', {
-                    code: error.code,
-                    message: error.message,
-                    name: error.name,
-                    fullError: error
-                })
-                
-                // Verificar si es un error de "ya está habilitado"
-                const errorMessage = error.message?.toLowerCase() || ''
-                const errorCode = error.code
-                
-                const isAlreadyEnabledError = (
-                    // Verificar por código de error
-                    (errorCode === 'INVALID_OPERATION' || errorCode === 'INVALID_STATE') &&
-                    // Y por mensaje de error (múltiples variaciones)
-                    (errorMessage.includes('already enabled') ||
-                     errorMessage.includes('dual stream is already enabled') ||
-                     errorMessage.includes('duplicated operation') ||
-                     errorMessage.includes('dual-stream already enabled') ||
-                     errorMessage.includes('already turned on'))
-                )
-                
-                if (isAlreadyEnabledError) {
-                    this.isDualStreamEnabled = true
-                    console.log('ensureDualStreamEnabled: Dual stream was already enabled, updating flag')
-                } else {
-                    console.warn('ensureDualStreamEnabled: Failed to enable dual stream with unknown error:', error.message)
-                    // No actualizar el flag si es un error diferente
-                    throw error // Re-lanzar para que el código que llama sepa que falló
-                }
-            }
-        } catch (outerError: any) {
-            console.error('ensureDualStreamEnabled: Unexpected error:', outerError)
-            // No re-lanzar errores inesperados para no romper el flujo de conexión
-        }
-    }
-
-    private verifyDualStreamState(): void {
-        // Verificación asíncrona del estado del dual stream
-        // No podemos hacer await aquí porque esto es un listener de eventos
-        setTimeout(async () => {
-            try {
-                // Intentar una operación que falle si dual stream no está habilitado
-                // En lugar de intentar habilitarlo de nuevo, solo verificamos
-                console.log('verifyDualStreamState: Checking if dual stream needs to be enabled...')
-                if (!this.isDualStreamEnabled) {
-                    console.log('verifyDualStreamState: Flag indicates dual stream is disabled, attempting to sync...')
-                    await this.ensureDualStreamEnabled()
-                } else {
-                    console.log('verifyDualStreamState: Flag indicates dual stream is already enabled')
-                }
-            } catch (error) {
-                console.log('verifyDualStreamState: Error during verification:', error)
-            }
-        }, 1000) // Esperar 1 segundo para que la conexión se estabilice
     }
 
     public getConnectionState() {
@@ -729,52 +617,6 @@ export class VideoChat {
             isScreenSharing: user.uid.toString().endsWith('_screen'),
             baseUID: user.uid.toString().replace('_screen', '')
         }))
-    }
-
-    public getConnectionDebugInfo() {
-        const info = {
-            mainClient: {
-                state: this.client?.connectionState || 'DISCONNECTED',
-                uid: this.client?.uid || null,
-                channelName: this.client?.channelName || null,
-                remoteUsers: this.client?.remoteUsers?.length || 0
-            },
-            screenClient: {
-                state: this.screenClient?.connectionState || 'DISCONNECTED', 
-                uid: this.screenClient?.uid || null,
-                channelName: this.screenClient?.channelName || null,
-                remoteUsers: this.screenClient?.remoteUsers?.length || 0
-            },
-            isScreenSharing: this.isScreenSharing,
-            currentChannel: this.currentChannel,
-            currentRealmId: this.currentRealmId,
-            baseUID: this.baseUID
-        }
-        
-        return info
-    }
-
-    public getTracksState() {
-        return {
-            camera: {
-                exists: !!this.cameraTrack,
-                enabled: this.cameraTrack?.enabled || false
-            },
-            microphone: {
-                exists: !!this.microphoneTrack,
-                muted: this.microphoneTrack?.muted || false
-            },
-            screen: {
-                exists: !!this.screenTrack,
-                enabled: this.screenTrack?.enabled || false,
-                isSharing: this.isScreenSharing
-            },
-            client: {
-                state: this.client?.connectionState || 'DISCONNECTED',
-                uid: this.client?.uid || null,
-                channel: this.currentChannel || null
-            }
-        }
     }
 
     public getLocalUserInfo() {
@@ -817,7 +659,6 @@ export class VideoChat {
                     // Re-emitir el evento para actualizar la UI
                     signal.emit('user-info-updated', user)
                 } catch (userError) {
-                    console.error(`Error refreshing subscription for user ${user.uid}:`, userError)
                     // Continuar con otros usuarios aunque falle uno
                 }
             }
@@ -834,17 +675,17 @@ export class VideoChat {
                             signal.emit('user-info-updated', user)
                         }
                     } catch (userError) {
-                        console.error(`Error refreshing screen subscription for user ${user.uid}:`, userError)
+                        // Error refreshing screen subscription
                     }
                 }
             }
             
         } catch (error) {
-            console.error('Error refreshing existing subscriptions:', error)
+            // Error refreshing existing subscriptions
         }
     }
 
-    // Función pública para forzar un refresh de suscripciones desde el frontend
+    // Función pública para forzar un refresh de suscripciones cuando las cámaras se pongan en negro
     public async forceRefreshSubscriptions() {
         await this.refreshExistingSubscriptions()
     }
@@ -869,11 +710,9 @@ export class VideoChat {
 
     private handleVisibilityChange = () => {
         if (document.hidden) {
-            // Página oculta - pausar algunos streams si es necesario
-            console.log('Page became hidden')
+            // Página oculta
         } else {
             // Página visible - refrescar streams después de un breve delay
-            console.log('Page became visible, refreshing streams...')
             setTimeout(() => {
                 this.refreshAllStreams()
             }, 500)
@@ -886,36 +725,67 @@ export class VideoChat {
                                 (document as any).mozFullScreenElement || 
                                 (document as any).msFullscreenElement)
         
-        console.log(`Fullscreen changed: ${isFullscreen ? 'entered' : 'exited'}`)
+        if (isFullscreen) {
+            // Entrando a fullscreen - refrescar después de un delay corto
+            setTimeout(() => {
+                this.refreshAllStreams()
+            }, 500)
+        } else {
+            // Saliendo de fullscreen - delay más largo y recrear tracks si es necesario
+            setTimeout(async () => {
+                // Primero intentar refresh normal
+                await this.refreshAllStreams()
+                
+                // Después de un delay adicional, verificar si los tracks funcionan
+                setTimeout(async () => {
+                    // Si los tracks parecen no funcionar, recrearlos
+                    const needsRecreation = this.checkIfTracksNeedRecreation()
+                    if (needsRecreation) {
+                        await this.recreateCorruptedTracks()
+                    }
+                }, 2000)
+            }, 1000)
+        }
+    }
+
+    private checkIfTracksNeedRecreation(): boolean {
+        // Verificar si la cámara parece estar corrupta
+        if (this.cameraTrack && this.cameraTrack.enabled) {
+            const track = this.cameraTrack.getMediaStreamTrack()
+            if (!track || track.readyState === 'ended') {
+                return true
+            }
+        }
         
-        // Refrescar streams después de cambio de fullscreen
-        setTimeout(() => {
-            this.refreshAllStreams()
-        }, 1000)
+        // Verificar si el micrófono parece estar corrupto
+        if (this.microphoneTrack) {
+            const track = this.microphoneTrack.getMediaStreamTrack()
+            if (!track || track.readyState === 'ended') {
+                return true
+            }
+        }
+        
+        return false
     }
 
     private refreshAllStreams = async () => {
         try {
-            console.log('Refreshing all streams after visibility/fullscreen change...')
-
-            // Refrescar cámara local si existe
+            // Para la cámara local, NO usar stop() ya que destruye el track
             if (this.cameraTrack && this.cameraTrack.enabled) {
                 try {
-                    // Parar y volver a iniciar la reproducción
-                    this.cameraTrack.stop()
+                    // Solo volver a reproducir sin detener el track
                     setTimeout(() => {
                         if (this.cameraTrack) {
                             this.cameraTrack.play('local-video')
                         }
                     }, 100)
                 } catch (playError) {
-                    console.log('Local video element not found during refresh')
+                    // Local video element not found during refresh
                 }
             }
 
             // Refrescar screen share local si existe
             if (this.screenTrack) {
-                console.log('Refreshing local screen share...')
                 signal.emit('refresh-local-screen-share', this.screenTrack)
             }
 
@@ -932,25 +802,93 @@ export class VideoChat {
                         }
                     })
                 } catch (error) {
-                    console.error('Error in second refresh attempt:', error)
+                    // Error in second refresh attempt
                 }
             }, 1500)
-
-            console.log('All streams refresh completed')
         } catch (error) {
-            console.error('Error refreshing streams:', error)
+            // Error refreshing streams
+        }
+    }
+
+    // Función para recrear tracks corruptos después de fullscreen
+    public async recreateCorruptedTracks() {
+        try {
+            // Recrear cámara si está habilitada pero corrupta
+            if (this.cameraTrack) {
+                const wasEnabled = this.cameraTrack.enabled
+                
+                // Despublicar track actual
+                if (this.client.connectionState === 'CONNECTED') {
+                    try {
+                        await this.client.unpublish([this.cameraTrack])
+                    } catch (e) {
+                        // Ignorar errores de unpublish
+                    }
+                }
+                
+                // Cerrar track actual
+                this.cameraTrack.stop()
+                this.cameraTrack.close()
+                this.cameraTrack = null
+                
+                if (wasEnabled) {
+                    // Crear nuevo track
+                    this.cameraTrack = await AgoraRTC.createCameraVideoTrack()
+                    
+                    // Reproducir localmente
+                    try {
+                        this.cameraTrack.play('local-video')
+                    } catch (playError) {
+                        // Local video element not found during recreate
+                    }
+                    
+                    // Republicar
+                    if (this.client.connectionState === 'CONNECTED') {
+                        await this.republishAllTracks()
+                    }
+                }
+            }
+            
+            // Recrear micrófono si está habilitado pero corrupto
+            if (this.microphoneTrack) {
+                const wasMuted = this.microphoneTrack.muted
+                
+                // Despublicar track actual
+                if (this.client.connectionState === 'CONNECTED') {
+                    try {
+                        await this.client.unpublish([this.microphoneTrack])
+                    } catch (e) {
+                        // Ignorar errores de unpublish
+                    }
+                }
+                
+                // Cerrar track actual
+                this.microphoneTrack.stop()
+                this.microphoneTrack.close()
+                this.microphoneTrack = null
+                
+                // Crear nuevo track
+                this.microphoneTrack = await AgoraRTC.createMicrophoneAudioTrack()
+                await this.microphoneTrack.setMuted(wasMuted)
+                
+                // Republicar
+                if (this.client.connectionState === 'CONNECTED') {
+                    await this.republishAllTracks()
+                }
+            }
+        } catch (error) {
+            // Error recreating tracks
         }
     }
 }
 
 export const videoChat = new VideoChat()
 
-// Funciones helper para debug
-export const getVideoChatDebugInfo = () => videoChat.getConnectionDebugInfo()
-export const getVideoChatTracksState = () => videoChat.getTracksState()
-
 // Función para forzar refresh de suscripciones cuando las cámaras se pongan en negro
 export const forceRefreshVideoSubscriptions = () => videoChat.forceRefreshSubscriptions()
 
 // Función para refrescar todos los streams (cámara local, screen share y remotos)
 export const forceRefreshAllStreams = () => videoChat.forceRefreshAllStreams()
+
+// Función para recrear tracks corruptos después de fullscreen
+export const recreateCorruptedTracks = () => videoChat.recreateCorruptedTracks()
