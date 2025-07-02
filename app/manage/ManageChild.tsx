@@ -10,6 +10,7 @@ import { Copy } from '@phosphor-icons/react'
 import { v4 as uuidv4 } from 'uuid'
 import BasicInput from '@/components/BasicInput'
 import { removeExtraSpaces } from '@/utils/removeExtraSpaces'
+import { copyWithNotification } from '@/utils/copyToClipboard'
 
 type ManageChildProps = {
     realmId: string
@@ -57,8 +58,7 @@ const ManageChild:React.FC<ManageChildProps> = ({ realmId, startingShareId, star
 
     function copyLink() {
         const link = process.env.NEXT_PUBLIC_BASE_URL + '/play/' + realmId + '?shareId=' + shareId
-        navigator.clipboard.writeText(link)
-        toast.success('Link copied!')
+        copyWithNotification(link, 'Link copied!', 'Error al copiar enlace', toast)
     }
 
     async function generateNewLink() {
@@ -78,8 +78,7 @@ const ManageChild:React.FC<ManageChildProps> = ({ realmId, startingShareId, star
         } else {
             setShareId(newShareId)
             const link = process.env.NEXT_PUBLIC_BASE_URL + '/play/' + realmId + '?shareId=' + newShareId
-            navigator.clipboard.writeText(link)
-            toast.success('New link copied!')
+            copyWithNotification(link, 'New link copied!', 'Error al copiar enlace', toast)
         }
 
         revalidate('/manage/[id]')

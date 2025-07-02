@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useModal } from '@/app/hooks/useModal'
 import Link from 'next/link'
 import { toast } from 'react-toastify'
+import { copyWithNotification } from '@/utils/copyToClipboard'
 
 type DesktopRealmItemProps = {
     name: string,
@@ -53,8 +54,7 @@ const DesktopRealmItem: React.FC<DesktopRealmItemProps> = ({ name, id, shareId, 
     }
 
     function copyShareLink() {
-        navigator.clipboard.writeText(`${process.env.NEXT_PUBLIC_BASE_URL}/play/${id}?shareId=${shareId}`)
-        toast.success('Link copied!')
+        copyWithNotification(`${process.env.NEXT_PUBLIC_BASE_URL}/play/${id}?shareId=${shareId}`, 'Link copied!', 'Error al copiar enlace', toast)
     }
 
     return (
