@@ -4,13 +4,14 @@ import AgoraRTC, {
 } from 'agora-rtc-react'
 import { IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng'
 import signal from '../../utils/signal'
-import { videoChat, forceRefreshVideoSubscriptions } from '../../utils/video-chat/video-chat'
+import { videoChat, forceRefreshVideoSubscriptions, forceRefreshAllStreams } from '../../utils/video-chat/video-chat'
 
 interface VideoChatContextType {
     toggleCamera: () => void
     toggleMicrophone: () => void
     toggleScreenShare: () => void
     refreshVideoSubscriptions: () => void
+    refreshAllStreams: () => void
     isCameraMuted: boolean
     isMicMuted: boolean
     isScreenSharing: boolean
@@ -105,11 +106,20 @@ const VideoChatProvider: React.FC<VideoChatProviderProps> = ({ children }) => {
         }
     }
 
+    const refreshAllStreams = async () => {
+        try {
+            await forceRefreshAllStreams()
+        } catch (error) {
+            console.error('Hook: Error in refreshAllStreams:', error)
+        }
+    }
+
     const value: VideoChatContextType = {
         toggleCamera,
         toggleMicrophone,
         toggleScreenShare,
         refreshVideoSubscriptions,
+        refreshAllStreams,
         isCameraMuted,
         isMicMuted,
         isScreenSharing,

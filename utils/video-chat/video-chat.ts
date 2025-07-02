@@ -35,6 +35,9 @@ export class VideoChat {
                 this.verifyDualStreamState()
             }
         })
+
+        // Agregar listeners para eventos de visibilidad y fullscreen
+        this.setupVisibilityListeners()
     }
 
     private setupScreenClient() {
@@ -556,6 +559,15 @@ export class VideoChat {
                 await this.screenClient.leave()
             }
 
+            // Limpiar event listeners de visibilidad y fullscreen
+            if (typeof window !== 'undefined') {
+                document.removeEventListener('visibilitychange', this.handleVisibilityChange)
+                document.removeEventListener('fullscreenchange', this.handleFullscreenChange)
+                document.removeEventListener('webkitfullscreenchange', this.handleFullscreenChange)
+                document.removeEventListener('mozfullscreenchange', this.handleFullscreenChange)
+                document.removeEventListener('msfullscreenchange', this.handleFullscreenChange)
+            }
+
             // Limpiar referencias
             this.microphoneTrack = null
             this.cameraTrack = null
@@ -836,6 +848,99 @@ export class VideoChat {
     public async forceRefreshSubscriptions() {
         await this.refreshExistingSubscriptions()
     }
+
+    // Función pública para forzar un refresh de todos los streams desde el frontend
+    public async forceRefreshAllStreams() {
+        await this.refreshAllStreams()
+    }
+
+    private setupVisibilityListeners() {
+        if (typeof window === 'undefined') return
+
+        // Listener para cambios de visibilidad (minimizar ventana, cambiar de tab, etc.)
+        document.addEventListener('visibilitychange', this.handleVisibilityChange)
+        
+        // Listeners para fullscreen
+        document.addEventListener('fullscreenchange', this.handleFullscreenChange)
+        document.addEventListener('webkitfullscreenchange', this.handleFullscreenChange) // Safari
+        document.addEventListener('mozfullscreenchange', this.handleFullscreenChange) // Firefox
+        document.addEventListener('msfullscreenchange', this.handleFullscreenChange) // IE/Edge
+    }
+
+    private handleVisibilityChange = () => {
+        if (document.hidden) {
+            // Página oculta - pausar algunos streams si es necesario
+            console.log('Page became hidden')
+        } else {
+            // Página visible - refrescar streams después de un breve delay
+            console.log('Page became visible, refreshing streams...')
+            setTimeout(() => {
+                this.refreshAllStreams()
+            }, 500)
+        }
+    }
+
+    private handleFullscreenChange = () => {
+        const isFullscreen = !!(document.fullscreenElement || 
+                                (document as any).webkitFullscreenElement || 
+                                (document as any).mozFullScreenElement || 
+                                (document as any).msFullscreenElement)
+        
+        console.log(`Fullscreen changed: ${isFullscreen ? 'entered' : 'exited'}`)
+        
+        // Refrescar streams después de cambio de fullscreen
+        setTimeout(() => {
+            this.refreshAllStreams()
+        }, 1000)
+    }
+
+    private refreshAllStreams = async () => {
+        try {
+            console.log('Refreshing all streams after visibility/fullscreen change...')
+
+            // Refrescar cámara local si existe
+            if (this.cameraTrack && this.cameraTrack.enabled) {
+                try {
+                    // Parar y volver a iniciar la reproducción
+                    this.cameraTrack.stop()
+                    setTimeout(() => {
+                        if (this.cameraTrack) {
+                            this.cameraTrack.play('local-video')
+                        }
+                    }, 100)
+                } catch (playError) {
+                    console.log('Local video element not found during refresh')
+                }
+            }
+
+            // Refrescar screen share local si existe
+            if (this.screenTrack) {
+                console.log('Refreshing local screen share...')
+                signal.emit('refresh-local-screen-share', this.screenTrack)
+            }
+
+            // Refrescar suscripciones de usuarios remotos
+            await this.refreshExistingSubscriptions()
+
+            // Esperar un poco y hacer un segundo intento de refresh para streams remotos
+            setTimeout(async () => {
+                try {
+                    // Re-emitir eventos de actualización para todos los usuarios remotos
+                    Object.values(this.remoteUsers).forEach(user => {
+                        if (user.hasVideo || user.hasAudio) {
+                            signal.emit('user-info-updated', user)
+                        }
+                    })
+                } catch (error) {
+                    console.error('Error in second refresh attempt:', error)
+                }
+            }, 1500)
+
+            console.log('All streams refresh completed')
+        } catch (error) {
+            console.error('Error refreshing streams:', error)
+        }
+    }
 }
 
 export const videoChat = new VideoChat()
@@ -846,3 +951,6 @@ export const getVideoChatTracksState = () => videoChat.getTracksState()
 
 // Función para forzar refresh de suscripciones cuando las cámaras se pongan en negro
 export const forceRefreshVideoSubscriptions = () => videoChat.forceRefreshSubscriptions()
+
+// Función para refrescar todos los streams (cámara local, screen share y remotos)
+export const forceRefreshAllStreams = () => videoChat.forceRefreshAllStreams()
