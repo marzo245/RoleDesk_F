@@ -7,11 +7,18 @@ export async function GET(request: Request) {
   // https://supabase.com/docs/guides/auth/server-side/nextjs
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const realmId = requestUrl.searchParams.get("realmId");
+  const shareId = requestUrl.searchParams.get("shareId");
   const origin = requestUrl.origin;
 
   if (code) {
     const supabase = createClient();
     await supabase.auth.exchangeCodeForSession(code);
+  }
+
+  // Si hay realmId y shareId, redirigir directamente al mundo compartido
+  if (realmId && shareId) {
+    return NextResponse.redirect(`${origin}/play/${realmId}?shareId=${shareId}`);
   }
 
   // URL to redirect to after sign up process completes

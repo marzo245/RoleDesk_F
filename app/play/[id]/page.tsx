@@ -17,6 +17,10 @@ export default async function Play({ params, searchParams }: { params: { id: str
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!session || !user) {
+        // Si hay shareId, incluirlo en la redirección al signin
+        if (searchParams.shareId) {
+            return redirect(`/signin?realmId=${params.id}&shareId=${searchParams.shareId}`)
+        }
         return redirect('/signin')
     }
 
