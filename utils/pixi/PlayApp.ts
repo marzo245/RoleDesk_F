@@ -475,7 +475,7 @@ export class PlayApp extends App {
     private removeEvents = () => {
         this.removeSocketEvents()
         this.destroyPlayers()
-        server.disconnect()
+        server?.disconnect() // Proteger la llamada a disconnect
 
         PIXI.Ticker.shared.destroy()
 

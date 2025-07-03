@@ -29,7 +29,8 @@ const PlayClient:React.FC<PlayClientProps> = ({ mapData, username, access_token,
     const { setErrorModal, setDisconnectedMessage } = useModal()
     const { screenShareUser, isLocalScreenSharing, closeScreenShare } = useScreenShare()
 
-    const [showIntroScreen, setShowIntroScreen] = useState(true)
+    // Si hay un shareId, no mostramos la pantalla de introducción
+    const [showIntroScreen, setShowIntroScreen] = useState(!shareId)
 
     const [skin, setSkin] = useState(initialSkin)
 

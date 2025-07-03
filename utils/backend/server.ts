@@ -15,56 +15,81 @@ class Server {
 
     public async connect(realmId: string, uid: string, shareId: string, access_token: string) {
         this.socket = io(backend_url, {
-        reconnection: true,
-        autoConnect: false,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
-        transportOptions: {
-            polling: {
-                extraHeaders: {
-                    'Authorization': `Bearer ${access_token}`
+            reconnection: true,
+            autoConnect: false,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 2000,
+            transportOptions: {
+                polling: {
+                    extraHeaders: {
+                        'Authorization': `Bearer ${access_token}`
+                    }
                 }
+            },
+            query: {
+                uid
             }
-        },
-        query: {
-            uid
-        }
-    })
+        })
 
         return new Promise<ConnectionResponse>((resolve, reject) => {
-            this.socket.connect()
+            let retryAttempt = 0;
+            let connectTimeout: NodeJS.Timeout;
+            
+            const tryConnect = () => {
+                this.socket.connect();
+                
+                // Establecer un timeout para reintentar
+                connectTimeout = setTimeout(() => {
+                    if (!this.connected && retryAttempt < 2) { // Máximo 2 reintentos
+                        retryAttempt++;
+                        // Desconectar antes de reintentar
+                        if (this.socket) {
+                            this.socket.disconnect();
+                        }
+                        tryConnect();
+                    }
+                }, 3000); // 3 segundos de espera antes de reintentar
+            };
 
             this.socket.on('connect', () => {
-                this.connected = true
-
+                this.connected = true;
+                clearTimeout(connectTimeout);
+                
                 this.socket.emit('joinRealm', {
                     realmId,
                     shareId: shareId || ''
-                })
-            })
+                });
+            });
 
             this.socket.on('joinedRealm', () => {
+                clearTimeout(connectTimeout);
                 resolve({
                     success: true,
                     errorMessage: ''
-                })
-            })
+                });
+            });
 
             this.socket.on('failedToJoinRoom', (reason: string) => {
+                clearTimeout(connectTimeout);
                 resolve({
                     success: false,
                     errorMessage: reason
-                })
-            })
+                });
+            });
 
             this.socket.on('connect_error', (err: any) => {
-                // Connection error
-                resolve({
-                    success: false,
-                    errorMessage: err.message
-                })
-            })
-        })
+                if (retryAttempt >= 2) {
+                    clearTimeout(connectTimeout);
+                    resolve({
+                        success: false,
+                        errorMessage: err.message
+                    });
+                }
+            });
+
+            // Iniciar el primer intento de conexión
+            tryConnect();
+        });
     }
 
     public disconnect() {

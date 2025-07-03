@@ -342,13 +342,13 @@ export class VideoChat {
             if (this.currentChannel === '') return
 
             // Desconectar cliente principal
-            if (this.client.connectionState === 'CONNECTED') {
-                await this.client.leave()
+            if (this.client?.connectionState === 'CONNECTED') {
+                await this.client?.leave()
             }
 
             // Desconectar cliente de pantalla si existe
-            if (this.screenClient && this.screenClient.connectionState === 'CONNECTED') {
-                await this.screenClient.leave()
+            if (this.screenClient?.connectionState === 'CONNECTED') {
+                await this.screenClient?.leave()
             }
 
             this.currentChannel = ''
