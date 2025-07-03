@@ -6,23 +6,10 @@ import { getPlayRealmData } from '@/utils/supabase/getPlayRealmData'
 import { updateVisitedRealms } from '@/utils/supabase/updateVisitedRealms'
 import { formatEmailToName } from '@/utils/formatEmailToName'
 import { PostgrestError } from '@supabase/supabase-js'
-import { AuthError } from '@supabase/supabase-js'
 import dynamic from 'next/dynamic'
 
 // 👉 import dinámico para evitar errores SSR (como window is not defined)
 const PlayClient = dynamic(() => import('../PlayClient'), { ssr: false })
-
-type RealmData = {
-    map_data: any
-    owner_id: string
-    name: string
-}
-
-type ProfileData = {
-    skin: string
-}
-
-type CustomError = PostgrestError | AuthError
 
 export default async function Play({ params, searchParams }: { params: { id: string }, searchParams: { shareId: string } }) {
     const supabase = createClient()
@@ -33,51 +20,15 @@ export default async function Play({ params, searchParams }: { params: { id: str
         return redirect('/signin')
     }
 
-    let realmData: RealmData | null = null
-    let error: CustomError | null = null
+    const { data, error } = !searchParams.shareId
+        ? await supabase.from('realms').select('map_data, owner_id, name').eq('id', params.id).single()
+        : await getPlayRealmData(session.access_token, searchParams.shareId)
 
-    // Si hay un shareId, primero obtenemos el ID del reino correspondiente
-    if (searchParams.shareId) {
-        const { data: sharedRealmData, error: shareError } = await supabase
-            .from('realms')
-            .select('id')
-            .eq('share_id', searchParams.shareId)
-            .single()
-        
-        if (shareError) {
-            return <NotFound specialMessage={shareError.message} />
-        }
-
-        // Si el ID del reino compartido no coincide con el ID de la URL, redirigimos
-        if (sharedRealmData && sharedRealmData.id !== params.id) {
-            return redirect(`/play/${sharedRealmData.id}?shareId=${searchParams.shareId}`)
-        }
+    if (!data || error) {
+        const message = error?.message || 'No se encontró el mundo solicitado'
+        return <NotFound specialMessage={message} />
     }
 
-    // Obtener datos del reino
-    if (searchParams.shareId) {
-        const result = await getPlayRealmData(session.access_token, searchParams.shareId)
-        realmData = result.data
-        error = result.error
-    } else {
-        const { data, error: postgrestError } = await supabase
-            .from('realms')
-            .select('map_data, owner_id, name')
-            .eq('id', params.id)
-            .single()
-        realmData = data
-        error = postgrestError
-    }
-
-    if (error) {
-        return <NotFound specialMessage={error.message} />
-    }
-
-    if (!realmData) {
-        return <NotFound specialMessage="No se encontró el mundo solicitado" />
-    }
-
-    // Obtener perfil del usuario
     let { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('skin')
@@ -99,12 +50,8 @@ export default async function Play({ params, searchParams }: { params: { id: str
         }
     }
 
-    if (profileError) {
-        return <NotFound specialMessage={profileError.message} />
-    }
-
     if (!profile) {
-        return <NotFound specialMessage="No se pudo cargar el perfil del usuario" />
+        return <NotFound specialMessage={profileError?.message || 'No se pudo cargar el perfil del usuario'} />
     }
 
     const validSkins = Array.from({ length: 83 }, (_, i) =>
@@ -119,7 +66,7 @@ export default async function Play({ params, searchParams }: { params: { id: str
         profile.skin = '009'
     }
 
-    const realm = realmData
+    const realm = data
     const map_data = realm.map_data
     const skin = profile.skin
 
