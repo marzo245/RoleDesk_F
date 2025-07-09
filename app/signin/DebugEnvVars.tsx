@@ -9,6 +9,7 @@ export default function DebugEnvVars() {
       <div>NEXT_PUBLIC_SUPABASE_ANON_KEY: <code>{process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '[PRESENTE]' : '[VACÍA]'}</code></div>
       <div>NEXT_PUBLIC_BASE_URL: <code>{process.env.NEXT_PUBLIC_BASE_URL as string}</code></div>
       <div>NEXT_PUBLIC_BACKEND_URL: <code>{process.env.NEXT_PUBLIC_BACKEND_URL as string}</code></div>
+      <div>NEXT_PUBLIC_TEST: <code>{process.env.NEXT_PUBLIC_TEST as string}</code></div>
     </div>
   )
 }
