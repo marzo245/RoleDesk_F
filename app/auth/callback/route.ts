@@ -9,7 +9,8 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get("code");
   const realmId = requestUrl.searchParams.get("realmId");
   const shareId = requestUrl.searchParams.get("shareId");
-  const origin = requestUrl.origin;
+  // Usar NEXT_PUBLIC_BASE_URL si está definida, si no usar origin
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || requestUrl.origin;
 
   if (code) {
     const supabase = createClient();
@@ -18,9 +19,9 @@ export async function GET(request: Request) {
 
   // Si hay realmId y shareId, redirigir directamente al mundo compartido
   if (realmId && shareId) {
-    return NextResponse.redirect(`${origin}/play/${realmId}?shareId=${shareId}`);
+    return NextResponse.redirect(`${baseUrl}/play/${realmId}?shareId=${shareId}`);
   }
 
   // URL to redirect to after sign up process completes
-  return NextResponse.redirect(`${origin}/app`);
+  return NextResponse.redirect(`${baseUrl}/app`);
 }
