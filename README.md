@@ -1,4 +1,4 @@
-# RoleDesk Frontend 🎛️ 
+# RoleDesk Frontend 🎛️  
 
 ### **Documentación de Usuario**
 - **[📖 Guía de Uso](docs/USO.md)** - Manual de usuario y administrador
