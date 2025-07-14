@@ -8,7 +8,7 @@ import signal from '@/utils/signal'
 import IntroScreen from './IntroScreen'
 import VideoBar from '@/components/VideoChat/VideoBar'
 import ScreenShareViewer from '@/components/VideoChat/ScreenShareViewer'
-import LocalScreenSharePreview from '@/components/VideoChat/LocalScreenSharePreview'
+
 import ScreenShareModal from '@/components/VideoChat/ScreenShareModal'
 import { AgoraVideoChatProvider } from '../hooks/useVideoChat'
 import { useScreenShare } from '../hooks/useScreenShare'
@@ -76,7 +76,7 @@ const PlayClient:React.FC<PlayClientProps> = ({ mapData, username, access_token,
                 />
                 <PlayNavbar username={username} skin={skin}/>
                 <ScreenShareViewer />
-                <LocalScreenSharePreview />
+
                 
                 {/* Modal de pantalla compartida */}
                 {screenShareUser && (

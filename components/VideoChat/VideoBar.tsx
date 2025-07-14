@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng'
 import signal from '@/utils/signal'
-import { MicrophoneSlash, Monitor, ArrowsOut } from '@phosphor-icons/react'
+import { MicrophoneSlash, Monitor } from '@phosphor-icons/react'
 import AnimatedCharacter from '@/app/play/SkinMenu/AnimatedCharacter'
-import ScreenShareModal from './ScreenShareModal'
+
 
 interface RemoteUser {
     uid: string
@@ -17,7 +17,7 @@ interface RemoteUser {
 const VideoBar:React.FC = () => {
 
     const [remoteUsers, setRemoteUsers] = useState<{ [uid: string]: RemoteUser }>({})
-    const [fullscreenUser, setFullscreenUser] = useState<IAgoraRTCRemoteUser | null>(null)
+
     const [localUserUID, setLocalUserUID] = useState<string>('')
 
     // Función para extraer el UID base (sin sufijos como _screen)
@@ -201,9 +201,9 @@ const VideoBar:React.FC = () => {
     }, [localUserUID])
 
     return (
-        <main className='absolute z-10 w-full flex flex-col items-center pt-2 top-0'>
+        <main className='absolute z-10 w-full flex flex-col items-center pt-2 top-0 px-4'>
             {/* Agrupar usuarios por baseUID y mostrar todos sus streams */}
-            <section className='flex flex-col items-center gap-6'>
+            <section className='flex flex-col items-center gap-4 sm:gap-6 w-full max-w-4xl'>
                 {(() => {
                     // Agrupar usuarios por baseUID
                     const userGroups: { [baseUID: string]: RemoteUser[] } = {}
@@ -228,17 +228,17 @@ const VideoBar:React.FC = () => {
                         })
 
                         return (
-                            <div key={baseUID} className='flex flex-col items-center gap-3'>
+                            <div key={baseUID} className='flex flex-col items-center gap-3 w-full'>
                                 {/* Mostrar pantalla compartida si existe */}
                                 {screenUser && (
-                                    <div className='flex flex-col items-center gap-2'>
-                                        <p className='text-xs text-green-400 font-medium flex items-center gap-1'>
+                                    <div className='flex flex-col items-center gap-2 w-full'>
+                                        <p className='text-xs sm:text-sm text-green-400 font-medium flex items-center gap-1 text-center'>
                                             <Monitor className='w-3 h-3' />
-                                            {baseUID.slice(-8)} está compartiendo pantalla
+                                            <span className='hidden sm:inline'>{baseUID.slice(-8)} está compartiendo pantalla</span>
+                                            <span className='sm:hidden'>Pantalla compartida</span>
                                         </p>
                                         <RemoteUserScreenShare 
                                             user={screenUser} 
-                                            onFullscreen={() => setFullscreenUser(screenUser.user)}
                                         />
                                     </div>
                                 )}
@@ -253,20 +253,14 @@ const VideoBar:React.FC = () => {
                 })()}
             </section>
             
-            {/* Modal de pantalla completa */}
-            {fullscreenUser && (
-                <ScreenShareModal 
-                    user={fullscreenUser}
-                    onClose={() => setFullscreenUser(null)}
-                />
-            )}
+
         </main>
     )
 }
 
 export default VideoBar
 
-function RemoteUserScreenShare({ user, onFullscreen }: { user: RemoteUser; onFullscreen: () => void }) {
+function RemoteUserScreenShare({ user }: { user: RemoteUser }) {
     const containerRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -297,7 +291,7 @@ function RemoteUserScreenShare({ user, onFullscreen }: { user: RemoteUser; onFul
     }, [user])
 
     return (
-        <div className='w-[500px] h-[280px] bg-[#0f0f1d] bg-opacity-95 rounded-lg overflow-hidden relative border-2 border-green-500 group cursor-pointer hover:border-green-400 transition-colors'>
+        <div className='w-full max-w-[500px] h-[200px] sm:h-[250px] md:h-[280px] bg-[#0f0f1d] bg-opacity-95 rounded-lg overflow-hidden relative border-2 border-green-500'>
             <div 
                 ref={containerRef} 
                 id={`remote-screen-${user.uid}`} 
@@ -319,21 +313,13 @@ function RemoteUserScreenShare({ user, onFullscreen }: { user: RemoteUser; onFul
                 />
             </div>
             
-            {/* Overlay con controles */}
-            <div className='absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center'>
-                <button
-                    onClick={onFullscreen}
-                    className='opacity-0 group-hover:opacity-100 bg-black bg-opacity-70 text-white p-3 rounded-full hover:bg-opacity-90 transition-all duration-200 flex items-center gap-2'
-                >
-                    <ArrowsOut className='w-5 h-5' />
-                    <span className='text-sm font-medium'>Pantalla completa</span>
-                </button>
-            </div>
+
             
-            <div className='absolute bottom-2 left-2 bg-black bg-opacity-80 rounded-full z-10 text-sm p-2 px-3 select-none flex flex-row items-center gap-2'>
-                <Monitor className='w-4 h-4 text-green-400' />
-                <span className='text-white'>Pantalla de {user.baseUID.slice(-8)}</span>
-                {!user.micEnabled && <MicrophoneSlash className='w-4 h-4 text-[#FF2F49]' />}
+            <div className='absolute bottom-2 left-2 bg-black bg-opacity-80 rounded-full z-10 text-xs sm:text-sm p-1 sm:p-2 px-2 sm:px-3 select-none flex flex-row items-center gap-1 sm:gap-2'>
+                <Monitor className='w-3 h-3 sm:w-4 sm:h-4 text-green-400' />
+                <span className='text-white hidden sm:inline'>Pantalla de {user.baseUID.slice(-8)}</span>
+                <span className='text-white sm:hidden'>Pantalla</span>
+                {!user.micEnabled && <MicrophoneSlash className='w-3 h-3 sm:w-4 sm:h-4 text-[#FF2F49]' />}
             </div>
         </div>
     )
@@ -372,7 +358,7 @@ function RemoteUser({ user }: { user: RemoteUser }) {
     }, [user])
 
     return (
-        <div className='w-[233px] h-[130px] bg-[#0f0f1d] bg-opacity-90 rounded-lg overflow-hidden relative'>
+        <div className='w-full max-w-[233px] h-[120px] sm:h-[130px] bg-[#0f0f1d] bg-opacity-90 rounded-lg overflow-hidden relative'>
             <div className='absolute w-full h-full grid place-items-center'>
                 <div className='w-[48px] h-[48px] bg-[#222222] rounded-full border-2 border-[#424A61] grid place-items-center overflow-hidden'>
                     {skin && <AnimatedCharacter src={`/sprites/characters/Character_${skin}.png`} noAnimation className='w-full h-full relative bottom-1'/>}

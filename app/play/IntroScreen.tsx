@@ -4,7 +4,7 @@ import BasicButton from '@/components/BasicButton'
 import AnimatedCharacter from './SkinMenu/AnimatedCharacter'
 import { useVideoChat } from '../hooks/useVideoChat'
 import MicAndCameraButtons from '@/components/VideoChat/MicAndCameraButtons'
-import LocalScreenSharePreview from '@/components/VideoChat/LocalScreenSharePreview'
+
 import ScreenSharePreviewIntro from '@/components/VideoChat/ScreenSharePreviewIntro'
 
 type IntroScreenProps = {
@@ -61,8 +61,7 @@ const IntroScreen:React.FC<IntroScreenProps> = ({ realmName, skin, username, set
                 </div>
             </section>
 
-            {/* Modal flotante de previsualización de pantalla compartida */}
-            <LocalScreenSharePreview />
+
         </main>
     )
 }
