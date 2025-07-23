@@ -130,32 +130,70 @@ const ManageChild:React.FC<ManageChildProps> = ({ realmId, startingShareId, star
         // eslint-disable-next-line
     }, [selectedTab])
 
+    // Polling automático para refrescar conectados cada 5 segundos en la pestaña de miembros
+    useEffect(() => {
+        if (selectedTab === 2) {
+            fetchRoomsAndConnected();
+            const interval = setInterval(() => {
+                fetchRoomsAndConnected();
+            }, 1000); // cada 1 segundo
+            return () => clearInterval(interval);
+        }
+    }, [selectedTab]);
+
+    useEffect(() => {
+        async function connectSocketIfNeeded() {
+            if (selectedTab === 2 && userId === ownerId && server.socket && !server.socket.connected) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+                await server.connect(realmId, userId, shareId, session.access_token);
+            }
+        }
+        connectSocketIfNeeded();
+        // eslint-disable-next-line
+    }, [selectedTab, userId, ownerId, realmId, shareId]);
+
     async function fetchMembers() {
-        setLoadingMembers(true)
-        // Obtener datos del realm para el shareId y owner
+        setLoadingMembers(true);
+        // Obtener el owner del realm
         const { data: realm, error: realmError } = await supabase
             .from('realms')
-            .select('share_id, owner_id')
+            .select('owner_id, share_id')
             .eq('id', realmId)
-            .single()
+            .single();
         if (!realm) {
-            setLoadingMembers(false)
-            return
+            setLoadingMembers(false);
+            return;
         }
-        setOwner(realm.owner_id)
-        // Buscar todos los perfiles que tengan el shareId en visited_realms
-        const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, skin, visited_realms')
-        if (!profiles) {
-            setMembers([])
-            setLoadingMembers(false)
-            return
+        setOwner(realm.owner_id);
+        // Obtener todos los user_id y visited_at que han visitado el realm
+        const { data: visited, error: visitedError } = await supabase
+            .from('visited_realms')
+            .select('user_id, visited_at')
+            .eq('realm_share_id', realm.share_id);
+        let userIds = visited ? visited.map((v: any) => v.user_id) : [];
+        // Asegurarse de incluir al owner (sin visited_at)
+        if (!userIds.includes(realm.owner_id)) {
+            userIds.push(realm.owner_id);
         }
-        // Filtrar los que tienen el shareId
-        const filtered = profiles.filter((p: any) => Array.isArray(p.visited_realms) && p.visited_realms.includes(realm.share_id) || p.id === realm.owner_id)
-        setMembers(filtered)
-        setLoadingMembers(false)
+        let profiles: any[] = [];
+        if (userIds.length > 0) {
+            const { data: profilesData, error: profilesError } = await supabase
+                .from('profiles')
+                .select('id, email, username')
+                .in('id', userIds);
+            profiles = profilesData || [];
+        }
+        // Unir perfiles con visited_at
+        const members = profiles.map((profile: any) => {
+            const visit = visited?.find((v: any) => v.user_id === profile.id);
+            return {
+                ...profile,
+                visited_at: visit ? visit.visited_at : null
+            };
+        });
+        setMembers(members);
+        setLoadingMembers(false);
     }
 
     async function fetchRoomsAndConnected() {
@@ -219,7 +257,7 @@ const ManageChild:React.FC<ManageChildProps> = ({ realmId, startingShareId, star
         // Obtener todos los usuarios que han visitado el realm (joined)
         const { data: visited, error: visitedError } = await supabase
             .from('visited_realms')
-            .select('user_id')
+            .select('user_id, visited_at')
             .eq('realm_share_id', shareId)
         if (!visited || visited.length === 0) {
             setJoinedMembers([])
@@ -229,79 +267,97 @@ const ManageChild:React.FC<ManageChildProps> = ({ realmId, startingShareId, star
         const userIds = visited.map((v: any) => v.user_id)
         const { data: profiles, error: profilesError } = await supabase
             .from('profiles')
-            .select('id, skin')
+            .select('id, username')
             .in('id', userIds)
-        setJoinedMembers(profiles || [])
+        // Unir perfiles con visited_at
+        const members = userIds.map((id: string) => {
+            const profile = profiles?.find((p: any) => p.id === id) as { username?: string } || {};
+            const visit = visited.find((v: any) => v.user_id === id);
+            return {
+                id,
+                username: profile.username,
+                visited_at: visit ? visit.visited_at : null
+            };
+        });
+        setJoinedMembers(members)
     }
 
     return (
         <div className='flex flex-col items-center pt-24'>
-            <div className='flex flex-row gap-8 relative w-full max-w-4xl'>
+            <div className='flex flex-row gap-8 relative w-full max-w-4xl bg-opacity-80 rounded-xl shadow-lg p-8' style={{background: 'rgba(20, 30, 60, 0.85)'}}> 
                 {/* Botón Volver */}
                 <div className='absolute right-0 top-[-40px]'>
                     <Link href='/app'>
-                        <BasicButton className='bg-primary text-white'>Volver</BasicButton>
+                        <BasicButton className='bg-primary text-white shadow-md'>Volver</BasicButton>
                     </Link>
                 </div>
-                <div className='flex flex-col h-[500px] w-[200px] border-white border-r-2 pr-4 gap-2'>
-                    <h1 className={`${selectedTab === 0 ? 'font-bold underline' : ''} cursor-pointer`} onClick={() => setSelectedTab(0)}>General</h1> 
-                    <h1 className={`${selectedTab === 1 ? 'font-bold underline' : ''} cursor-pointer`} onClick={() => setSelectedTab(1)}>Sharing Options</h1> 
-                    <h1 className={`${selectedTab === 2 ? 'font-bold underline' : ''} cursor-pointer`} onClick={() => setSelectedTab(2)}>Miembros</h1>
+                {/* Pestañas */}
+                <div className='flex flex-col h-[500px] w-[220px] border-white border-r-2 pr-6 gap-4'>
+                    <h1 className={`text-2xl font-bold mb-2 text-white`}>Administración</h1>
+                    <div className='flex flex-col gap-2'>
+                        <button className={`text-lg py-2 px-3 rounded transition-all ${selectedTab === 0 ? 'bg-blue-700 text-white font-bold' : 'bg-transparent text-blue-200 hover:bg-blue-800'}`} onClick={() => setSelectedTab(0)}>General</button>
+                        <button className={`text-lg py-2 px-3 rounded transition-all ${selectedTab === 1 ? 'bg-blue-700 text-white font-bold' : 'bg-transparent text-blue-200 hover:bg-blue-800'}`} onClick={() => setSelectedTab(1)}>Opciones de Compartir</button>
+                        <button className={`text-lg py-2 px-3 rounded transition-all ${selectedTab === 2 ? 'bg-blue-700 text-white font-bold' : 'bg-transparent text-blue-200 hover:bg-blue-800'}`} onClick={() => setSelectedTab(2)}>Miembros</button>
+                    </div>
                 </div>
-                <div className='flex flex-col w-[300px]'>
+                {/* Contenido de la pestaña */}
+                <div className='flex flex-col w-[350px] gap-6'>
                     {selectedTab === 0 && (
-                        <div className='flex flex-col gap-2'>
-                            Name
+                        <div className='flex flex-col gap-4'>
+                            <h2 className='text-xl font-semibold text-blue-100 mb-2'>General</h2>
+                            <label className='text-blue-200 mb-1'>Nombre del espacio</label>
                             <BasicInput value={name} onChange={onNameChange} maxLength={32}/>
                         </div>
                     )}
                     {selectedTab === 1 && (
-                        <div className='flex flex-col gap-2'>
-                            <BasicButton className='flex flex-row items-center gap-2 text-sm max-w-max' onClick={copyLink}>
-                                Copy Link <Copy />
+                        <div className='flex flex-col gap-4'>
+                            <h2 className='text-xl font-semibold text-blue-100 mb-2'>Opciones de Compartir</h2>
+                            <BasicButton className='flex flex-row items-center gap-2 text-sm max-w-max bg-blue-600 hover:bg-blue-700 text-white shadow' onClick={copyLink}>
+                                Copiar enlace <Copy />
                             </BasicButton>
-                            <BasicButton className='flex flex-row items-center gap-2 text-sm max-w-max' onClick={generateNewLink}>
-                                Generate New Link <Copy />
+                            <BasicButton className='flex flex-row items-center gap-2 text-sm max-w-max bg-blue-600 hover:bg-blue-700 text-white shadow' onClick={generateNewLink}>
+                                Generar nuevo enlace <Copy />
                             </BasicButton>
                         </div>
                     )}
                     {selectedTab === 2 && (
-                        <div className='flex flex-col gap-2'>
-                            <div className='font-bold'>Conectados ahora:</div>
-                            {connected.length === 0 && <div>No hay usuarios conectados.</div>}
+                        <div className='flex flex-col gap-4'>
+                            <h2 className='text-xl font-semibold text-blue-100 mb-2'>Miembros conectados</h2>
+                            {connected.length === 0 && <div className='text-blue-300 italic'>No hay usuarios conectados.</div>}
                             {connected.map((user: any) => (
-                                <div key={user.uid} className='flex flex-row items-center justify-between p-2 rounded bg-blue-900 text-white'>
-                                    <div>
-                                        {user.username || user.uid} <span className='text-xs'>({user.roomName})</span>
+                                <div
+                                    key={user.uid}
+                                    className={`flex items-center justify-between p-3 mb-2 rounded-lg shadow transition-all bg-gradient-to-r from-blue-900 to-blue-700 text-white border-l-4 ${user.uid === ownerId ? 'border-yellow-400' : 'border-blue-500'}`}
+                                >
+                                    <div className='flex items-center gap-3'>
+                                        <span className='inline-block bg-blue-800 rounded-full p-2'>
+                                            <svg width='24' height='24' fill='currentColor'><circle cx='12' cy='12' r='10' /></svg>
+                                        </span>
+                                        <div>
+                                            <div className='font-semibold text-lg'>
+                                                {user.username || user.uid}
+                                                {user.uid === ownerId && (
+                                                    <span className='ml-2 px-2 py-1 text-xs rounded bg-yellow-400 text-black font-bold'>Owner</span>
+                                                )}
+                                            </div>
+                                            <div className='text-xs text-blue-200'>{user.roomName}</div>
+                                        </div>
                                     </div>
                                     {user.uid !== ownerId && (
-                                        <BasicButton className='text-xs py-1 px-2' onClick={() => kickPlayer(user.uid)}>
+                                        <BasicButton
+                                            className='text-xs py-1 px-3 bg-red-600 hover:bg-red-700 rounded shadow'
+                                            onClick={() => kickPlayer(user.uid)}
+                                        >
                                             Expulsar
                                         </BasicButton>
                                     )}
                                 </div>
                             ))}
-                            <div className='font-bold mt-4'>Miembros unidos:</div>
-                            {joinedMembers.length === 0 && <div>No hay miembros unidos a este realm.</div>}
-                            {joinedMembers.map((member: any) => (
-                                <div key={member.id} className={`flex flex-row items-center justify-between p-2 rounded bg-gray-800 text-white`}>
-                                    <div>
-                                        {member.username || member.email || member.id}
-                                        {member.id === ownerId && <span className='ml-2 text-xs'>(Owner)</span>}
-                                    </div>
-                                    {member.id !== ownerId && (
-                                        <BasicButton className='text-xs py-1 px-2' onClick={() => removeMember(member.id)}>
-                                            Eliminar acceso
-                                        </BasicButton>
-                                    )}
-                                </div>
-                            ))}
-                            <div className='font-bold mt-4'>Miembros históricos:</div>
                         </div>
                     )}
-                    </div>
-                <BasicButton className='absolute bottom-[-50px] right-0' onClick={save}>
-                    Save
+                </div>
+                <BasicButton className='absolute bottom-[-50px] right-0 bg-green-600 hover:bg-green-700 text-white shadow' onClick={save}>
+                    Guardar cambios
                 </BasicButton>
             </div>
         </div>

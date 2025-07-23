@@ -7,6 +7,7 @@ import { updateVisitedRealms } from '@/utils/supabase/updateVisitedRealms'
 import { formatEmailToName } from '@/utils/formatEmailToName'
 import { PostgrestError } from '@supabase/supabase-js'
 import dynamic from 'next/dynamic'
+import { addVisitedRealm } from '@/utils/supabase/addVisitedRealm';
 
 // 👉 import dinámico para evitar errores SSR (como window is not defined)
 const PlayClient = dynamic(() => import('../PlayClient'), { ssr: false })
@@ -75,7 +76,12 @@ export default async function Play({ params, searchParams }: { params: { id: str
     const skin = profile.skin
 
     if (searchParams.shareId && realm.owner_id !== user.id) {
-        updateVisitedRealms(session.access_token, searchParams.shareId)
+        try {
+            await addVisitedRealm(user.id, searchParams.shareId);
+            console.log('✅ Visita registrada en visited_realms:', user.id, searchParams.shareId);
+        } catch (e) {
+            console.error('❌ Error al registrar visita en visited_realms:', e);
+        }
     }
 
     return (
