@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
         const { data: user } = await supabase.auth.admin.getUserById(v.user_id);
         members.push({
             id: v.user_id,
-            display_name: user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email || v.user_id,
+            display_name: user?.user?.user_metadata?.full_name || user?.user?.user_metadata?.name || user?.user?.email || v.user_id,
             visited_at: v.visited_at
         });
     }
