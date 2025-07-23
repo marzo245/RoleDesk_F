@@ -132,13 +132,25 @@ const ManageChild:React.FC<ManageChildProps> = ({ realmId, startingShareId, star
 
     // Polling automático para refrescar conectados cada 5 segundos en la pestaña de miembros
     useEffect(() => {
+        let interval: NodeJS.Timeout | null = null;
+        let blocked = false;
         if (selectedTab === 2) {
-            fetchRoomsAndConnected();
-            const interval = setInterval(() => {
-                fetchRoomsAndConnected();
-            }, 1000); // cada 1 segundo
-            return () => clearInterval(interval);
+            const safeFetch = async () => {
+                if (blocked) return;
+                try {
+                    await fetchRoomsAndConnected();
+                } catch (error: any) {
+                    if (error?.status === 429) {
+                        blocked = true;
+                        toast.error('Demasiadas peticiones. Espera unos segundos...');
+                        setTimeout(() => { blocked = false; }, 20000); // Espera 20 segundos antes de reintentar
+                    }
+                }
+            };
+            safeFetch();
+            interval = setInterval(safeFetch, 5000); // cada 5 segundos
         }
+        return () => { if (interval) clearInterval(interval); };
     }, [selectedTab]);
 
     useEffect(() => {
