@@ -1,4 +1,6 @@
-# RoleDesk Frontend 🎛️ 
+# RoleDesk Frontend 
+<img width="346" height="164" alt="image" src="https://github.com/user-attachments/assets/703b4a5e-8dde-465e-9976-ca44fb361290" />
+
 
 ### **Documentación de Usuario**
 - **[📖 Guía de Uso](docs/USO.md)** - Manual de usuario y administrador
